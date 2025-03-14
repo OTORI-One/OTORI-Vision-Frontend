@@ -1,0 +1,49 @@
+{
+  "name": "ovt-fund",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000 -H 0.0.0.0",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "jest",
+    "populate-positions": "ts-node scripts/populate-initial-positions.ts",
+    "mint-ovt": "ts-node scripts/mint-initial-ovt.ts",
+    "seed-contract": "ts-node scripts/seed-contract-data.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@headlessui/react": "^2.2.0",
+    "@heroicons/react": "^2.1.1",
+    "@omnisat/lasereyes": "^0.0.140",
+    "@omnisat/lasereyes-core": "^0.0.62",
+    "@omnisat/lasereyes-react": "^0.0.57",
+    "autoprefixer": "^10.4.17",
+    "dotenv": "^16.4.7",
+    "lasereyes-mono": "github:omnisat/lasereyes-mono#main",
+    "next": "13.5.6",
+    "postcss": "^8.4.35",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "recharts": "^2.12.0",
+    "tailwindcss": "^3.4.1"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.4.2",
+    "@testing-library/react": "^14.2.1",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^22.13.10",
+    "@types/react": "^18.2.55",
+    "@types/react-dom": "^18.2.19",
+    "@types/recharts": "^1.8.29",
+    "check-peer-dependencies": "^4.1.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "typescript": "^5.3.3"
+  }
+}
