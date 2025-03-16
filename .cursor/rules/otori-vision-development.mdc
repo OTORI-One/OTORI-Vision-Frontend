@@ -1,0 +1,352 @@
+---
+description: General OTORI specific development rules
+globs: 
+alwaysApply: false
+---
+
+# OTORI Vision Token (OVT) Development Rules
+
+## Core Architecture Guidelines
+
+### 1. Hybrid Architecture Pattern
+- Follow Arch Network's hybrid architecture pattern @prompt_docs/arch_docs.md#Core-Concepts
+- Implement off-chain computation with on-chain execution
+- Reference implementation: @docs/DEV_JOURNAL.md#Project-Structure-Updates-(February-13th,-2025)
+
+### 2. Program Structure
+- Follow Arch Network program structure @prompt_docs/arch_docs.md#Reference-Docs
+- Maintain clear separation between mock and production implementations
+- Use TypeScript for frontend and Rust for smart contracts
+- Reference: @docs/DEV_JOURNAL.md#Latest-Updates-(February-11th,-2025)
+
+### 3. Development Environment
+- Follow Bitcoin Core and Electrs setup guide @prompt_docs/arch_docs.md#Getting-Started
+- Use regtest for local development @docs/DEV_JOURNAL.md#Environment-Updates-(February-12th,-2025)
+- Maintain proper environment configuration
+
+## Code Quality Standards
+
+### 1. Rust Guidelines
+- Use Rust 2021 edition
+- Follow Arch Network account model @prompt_docs/arch_docs.md#Reference-Docs
+- Implement comprehensive error handling
+- Document all public interfaces
+- Reference implementation: @docs/DEV_JOURNAL.md#Project-Structure-Updates-(February-13th,-2025)
+
+### 2. TypeScript Guidelines
+- Use strict TypeScript configuration
+- Follow Next.js best practices
+- Implement proper error boundaries
+- Document component interfaces
+- Reference: @docs/DEV_JOURNAL.md#Frontend-(ovt-fund)
+
+### 3. Data Handling
+- Implement proper loading states with TypeScript interfaces
+- Handle error cases gracefully using consistent patterns
+- Use TypeScript interfaces for all data structures
+- Document mock data patterns and transitions
+- Reference: @docs/DEV_JOURNAL.md#Frontend-(ovt-fund)
+
+### 4. UI/UX Standards
+- Follow Tailwind CSS best practices
+- Ensure responsive design across all components
+- Implement consistent loading states
+- Use uniform error handling patterns
+- Reference: @docs/DEV_JOURNAL.md#Frontend-(ovt-fund)
+
+### 5. Value Formatting and Data Flow
+- **Data Flow Principles**:
+  ```typescript
+  // Always pass raw values between components
+  interface TokenData {
+    amount: number;       // Raw numeric value
+    value: number;        // Raw value in sats
+    timestamp: number;    // Unix timestamp
+  }
+  ```
+- **Token Amount Formatting**:
+  - Values ≥ 1M: Use 'M' notation with two decimals
+  - Values ≥ 1k: Use 'k' notation with no decimals
+  - Values < 1k: Show full number
+  - Example: "1.50M tokens", "500k tokens", "750 tokens"
+- **Currency Value Standards**:
+  - BTC ≥ 0.1: Show in BTC with 2 decimals (e.g., "₿0.15")
+  - Sats ≥ 1M: Use 'M' notation (e.g., "1.50M sats")
+  - Sats ≥ 1k: Use 'k' notation (e.g., "500k sats")
+  - Sats < 1k: Show full number (e.g., "750 sats")
+- **Implementation Requirements**:
+  - Store raw values in state/props
+  - Format only at display time
+  - Use shared formatting utilities
+  - Apply consistent standards across all components
+- Reference: @docs/DEV_JOURNAL.md#Value-Formatting-and-Data-Flow-Improvements
+
+## Smart Contract Development
+
+### 1. Program Structure
+- Follow standard module organization:
+  ```rust
+  pub mod error;
+  pub mod state;
+  pub mod instructions;
+  pub mod utils;
+  pub mod validation;
+  pub mod bitcoin;
+  ```
+- Use consistent import patterns
+- Define clear program constants
+- Reference: @docs/DEV_JOURNAL.md#Project-Structure-Updates-(February-13th,-2025)
+
+### 2. Error Handling
+- Use custom error types for program-specific errors
+- Implement proper error propagation through Result types
+- Document all error conditions and recovery strategies
+- Reference: @docs/DEV_JOURNAL.md#Security-Improvements
+
+### 3. Program Constants
+- Define program seeds and prefixes:
+  ```rust
+  pub const OVT_SEED_PREFIX: &[u8] = b"ovt";
+  pub const TREASURY_SEED: &[u8] = b"treasury";
+  pub const NAV_SEED: &[u8] = b"nav";
+  ```
+- Document constant usage and derivation
+- Reference: @docs/DEV_JOURNAL.md#Project-Structure-Updates-(February-13th,-2025)
+
+## AI Integration Guidelines
+
+### 1. Off-Chain Components
+- Document AI model interfaces and version requirements
+- Implement proper data validation for model inputs/outputs
+- Handle model versioning and updates
+- Log all inference decisions for audit
+- Reference: @docs/DEV_JOURNAL.md#AI-Integration
+
+### 2. Data Processing
+- Use strongly typed interfaces for AI model I/O:
+  ```typescript
+  interface AIModelInput {
+    marketData: MarketData;
+    portfolioState: PortfolioState;
+    constraints: PortfolioConstraints;
+  }
+  ```
+- Implement verification mechanisms for model outputs
+- Document complete data flow and transformations
+- Reference: @docs/DEV_JOURNAL.md#Data-Integration
+
+### 3. Integration Patterns
+- Use proper type definitions for all interfaces
+- Implement proof verification mechanisms
+- Document data flow between components
+- Handle all edge cases with proper error recovery
+- Reference: @docs/DEV_JOURNAL.md#Security-Improvements
+
+## Environment Configuration
+
+### 1. Required Variables
+```env
+NEXT_PUBLIC_PROGRAM_ID=
+NEXT_PUBLIC_TREASURY_ADDRESS=
+NEXT_PUBLIC_ARCH_ENDPOINT=
+NEXT_PUBLIC_MOCK_MODE=
+NODE_ENV=
+```
+
+### 2. Build Process
+- Document all build steps in detail
+- Maintain comprehensive deployment scripts
+- Include environment validation checks
+- Verify all dependencies before deployment
+- Reference: @docs/DEV_JOURNAL.md#Deployment-Procedures
+
+## Testing Requirements
+
+### 1. Comprehensive Unit Tests
+- Write comprehensive unit tests
+- Implement integration tests
+- Follow test-driven development
+- Document test scenarios
+- Reference: @docs/DEV_JOURNAL.md#Testing-Infrastructure
+
+## Security Guidelines
+
+### 1. Program Security
+- Follow Bitcoin-grade security practices
+- Implement proper validation for all inputs
+- Never expose sensitive data or API keys
+- Reference: @docs/DEV_JOURNAL.md#Security-Improvements
+
+### 2. Frontend Security
+- Implement proper error boundaries
+- Handle all edge cases
+- Follow secure coding practices
+- Reference: @docs/DEV_JOURNAL.md#Code-Quality-&-Review-Process
+
+## Documentation Standards
+
+### 1. Code Documentation
+- Maintain comprehensive JSDoc/RustDoc comments
+- Document all AI integration points
+- Keep DEV_JOURNAL.md updated
+- Include rationale for architectural decisions
+- Reference: @docs/DEV_JOURNAL.md#Documentation-Updates
+
+### 2. Architecture Documentation
+- Document hybrid architecture decisions
+- Maintain clear migration paths
+- Update technical specifications
+- Reference: @docs/DEV_JOURNAL.md#Project-Overview
+
+## Development Process
+
+### 1. Task Management
+- Keep @docs/BACKLOG.md updated with all tasks and their status
+- Follow status indicators: 🔴 Not Started | 🟡 In Progress | 🟢 Completed | ⭕ Blocked | 🔵 In Review
+- Adhere to priority levels: 🏃‍♂️ P0 (Critical) | ��‍♂️ P1 (High) | 🧍‍♂️ P2 (Medium) | 🪑 P3 (Low)
+- Update task dependencies in the mermaid graph
+- Reference: @docs/BACKLOG.md#Status-&-Priority-Legend
+
+### 2. Version Control
+- Follow Git workflow defined in @docs/DEV_JOURNAL.md#Code-Quality-&-Review-Process
+- Require code reviews
+- Maintain clean commit history
+- Use semantic commit messages
+- Update @docs/BACKLOG.md after completing tasks
+
+### 3. CI/CD Pipeline
+- Maintain automated tests
+- Implement security scanning
+- Follow deployment checklist
+- Reference: @docs/DEV_JOURNAL.md#Testing-Infrastructure-Updates
+- Update task status in @docs/BACKLOG.md based on pipeline results
+
+## Mock Development Guidelines
+
+### 1. Mock SDK Structure
+- Follow Arch Network's account model pattern:
+  ```rust
+  pub mod account_info;
+  pub mod pubkey;
+  pub mod program;
+  pub mod test_utils;
+  ```
+- Re-export common types at root level
+- Define core types like `ProgramResult` at root
+- Reference: @docs/DEV_JOURNAL.md#Project-Structure-Updates-(February-13th,-2025)
+
+### 2. Mock Implementation Patterns
+- Implement comprehensive error handling with custom types
+- Use proper Borsh serialization for all data structures
+- Maintain parallel implementations for production/testing
+- Follow test-driven development approach
+- Reference: @docs/DEV_JOURNAL.md#Testing-Infrastructure
+
+### 3. Test Utilities
+- Implement `TestClient` for program testing:
+  ```rust
+  pub struct TestClient {
+      pub accounts: HashMap<Pubkey, AccountInfo>,
+      next_pubkey: u64,
+  }
+  ```
+- Provide account creation helpers
+- Implement transaction simulation
+- Add comprehensive test scenarios
+- Reference: @docs/DEV_JOURNAL.md#Testing-Infrastructure-Expansion
+
+### 4. Mock Data Standards
+- Use realistic mock data patterns
+- Implement proper error simulation
+- Document all mock limitations
+- Maintain type safety across mocks
+- Reference: @docs/DEV_JOURNAL.md#Mock-Mode-Development
+
+### 5. Testing with Mocks
+- Write comprehensive unit tests
+- Test all error conditions
+- Validate state transitions
+- Document test coverage
+- Reference: @docs/DEV_JOURNAL.md#Testing-Infrastructure
+
+## Project Tracking
+
+### 1. Backlog Management
+- Review and update @docs/BACKLOG.md at the start of each development session
+- Maintain task dependencies and relationships
+- Document blockers and their resolution
+- Keep epic progress synchronized with @docs/DEV_JOURNAL.md entries
+- Reference: @docs/BACKLOG.md#Task-Update-Process
+
+### 2. Progress Tracking
+- Update both @docs/BACKLOG.md and @docs/DEV_JOURNAL.md for significant changes
+- Maintain traceability between tasks and implementations
+- Document completion dates for major milestones
+- Follow priority guidelines from @docs/BACKLOG.md#Priority-Guidelines
+
+## Infrastructure Scaling Guidelines
+
+### 1. Service Abstraction Layer
+- Implement provider-agnostic interfaces for all blockchain interactions:
+  ```typescript
+  interface BlockchainProvider {
+    queryUtxos(address: string): Promise<UtxoSet>;
+    submitTransaction(tx: Transaction): Promise<TxResult>;
+    subscribeToMempool(callback: MempoolHandler): Subscription;
+  }
+  ```
+- Maintain separation between business logic and blockchain communication
+- Document all integration points and expected behaviors
+- Reference: @docs/DEV_JOURNAL.md#Infrastructure-Scaling
+
+### 2. Configuration Management
+- Define infrastructure configuration schema:
+  ```env
+  # Provider Configuration
+  BLOCKCHAIN_PROVIDER=local|maestro
+  PROVIDER_API_KEY=
+  PROVIDER_ENDPOINT=
+  
+  # Service Configuration
+  MEMPOOL_MONITORING=enabled|disabled
+  EVENT_SUBSCRIPTIONS=enabled|disabled
+  TX_MANAGER_MODE=standard|turbo
+  ```
+- Implement feature flags for gradual service adoption
+- Document configuration dependencies and defaults
+
+### 3. Monitoring and Metrics
+- Track key performance indicators:
+  ```typescript
+  interface ProviderMetrics {
+    queryLatency: number;
+    txSubmissionTime: number;
+    mempoolSyncDelay: number;
+    errorRate: Record<string, number>;
+  }
+  ```
+- Implement comprehensive logging for all blockchain interactions
+- Store historical performance data for migration planning
+- Reference: @docs/DEV_JOURNAL.md#Performance-Monitoring
+
+### 4. Migration Strategy
+- Maintain dual-provider capability during transition
+- Document provider-specific behaviors and differences
+- Implement gradual rollout strategy:
+  1. Monitoring integration
+  2. Read-only operations
+  3. Transaction submission
+  4. Full service adoption
+- Reference: @docs/DEV_JOURNAL.md#Migration-Planning
+
+### 5. Cost Optimization
+- Track usage metrics for each service component
+- Implement request batching and caching strategies
+- Document cost implications of different scaling approaches
+- Reference: @docs/DEV_JOURNAL.md#Resource-Optimization
+
+### 6. Testing Requirements
+- Maintain provider-specific test suites
+- Implement comparison testing between providers
+- Document performance benchmarks and acceptance criteria
+- Reference: @docs/DEV_JOURNAL.md#Integration-Testing

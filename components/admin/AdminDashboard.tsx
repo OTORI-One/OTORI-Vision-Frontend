@@ -60,8 +60,18 @@ export default function AdminDashboard() {
   // Return the admin dashboard or access denied message based on admin status
   return (
     <div className="w-full bg-white shadow-md rounded-lg p-6 font-sans text-gray-800">
-      {/* DEVELOPMENT MODE: Always show admin dashboard */}
-      {true ? (
+      {/* Back Button */}
+      <div className="mb-4">
+        <a href="/" className="inline-flex items-center text-blue-600 hover:text-blue-800">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          <span>Back to Dashboard</span>
+        </a>
+      </div>
+      
+      {/* Changed from hardcoded "true" to use isAdmin state */}
+      {isAdmin ? (
         <>
           <div className="border-b border-gray-200 pb-4">
             <h2 className="text-xl font-semibold text-gray-900">Admin Dashboard</h2>

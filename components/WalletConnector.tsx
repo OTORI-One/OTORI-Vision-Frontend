@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { UNISAT, XVERSE, useLaserEyes, ProviderType } from '@omnisat/lasereyes';
 
 interface WalletConnectorProps {
@@ -11,6 +11,16 @@ export default function WalletConnector({ onConnect, onDisconnect, connectedAddr
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { connect, disconnect, address, network } = useLaserEyes();
+
+  // Event emitter for wallet connections
+  useEffect(() => {
+    if (address) {
+      console.log('Wallet connected:', address);
+      // Dispatch a custom event that other components can listen for
+      const event = new CustomEvent('wallet-connected', { detail: { address } });
+      window.dispatchEvent(event);
+    }
+  }, [address]);
 
   const handleConnect = useCallback(async (wallet: ProviderType) => {
     setIsConnecting(true);
