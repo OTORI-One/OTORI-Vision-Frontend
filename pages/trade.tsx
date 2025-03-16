@@ -24,6 +24,21 @@ export default function TradePage() {
       setLaserEyesWallets([walletAddress]);
     }
   }, [walletAddress]);
+
+  // Add this effect to ensure wallet connection state is properly detected
+  useEffect(() => {
+    const updateConnectionStatus = () => {
+      setIsWalletConnected(!!address);
+    };
+    
+    // Call immediately and also listen for wallet connection events
+    updateConnectionStatus();
+    
+    window.addEventListener('wallet-connected', updateConnectionStatus);
+    return () => {
+      window.removeEventListener('wallet-connected', updateConnectionStatus);
+    };
+  }, [address]);
   
   return (
     <Layout title="Trade OVT">

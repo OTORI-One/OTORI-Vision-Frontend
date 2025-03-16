@@ -53,3 +53,6 @@ out/
 
 # Local Netlify folder
 .netlify/
+
+# Local Files
+prompt_docs/
