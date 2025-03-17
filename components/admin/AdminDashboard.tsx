@@ -26,7 +26,18 @@ export default function AdminDashboard() {
   // Check if current wallet is an admin
   useEffect(() => {
     console.log('AdminDashboard - Current address:', address);
-    const adminStatus = address ? isAdminWallet(address) : false;
+    console.log('Address type:', typeof address, 'Address length:', address?.length || 0);
+    
+    // Explicit check that address exists and is non-empty
+    if (!address || address.trim() === '') {
+      console.log('AdminDashboard - No valid address detected, setting isAdmin to false');
+      setIsAdmin(false);
+      return;
+    }
+    
+    // Check admin status
+    const adminStatus = isAdminWallet(address);
+    console.log('AdminDashboard - Admin status check result:', adminStatus);
     console.log('AdminDashboard - Is admin?', adminStatus);
     setIsAdmin(adminStatus);
   }, [address]);

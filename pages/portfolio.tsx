@@ -130,7 +130,10 @@ export default function PortfolioPage() {
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       item.change >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                     }`}>
-                      {item.change >= 0 ? '+' : ''}{item.change}%
+                      {item.change >= 0 ? '+' : ''}
+                      {String(item.change).includes('%') 
+                        ? String(item.change) 
+                        : `${item.change}%`}
                     </span>
                   </div>
                   <p className="text-sm text-gray-500 mb-4">{item.description}</p>
