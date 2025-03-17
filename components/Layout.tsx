@@ -44,8 +44,10 @@ export default function Layout({ children, title = 'OTORI Vision Token' }: Layou
   ];
   
   // Combine navigation links based on admin status
-  // DEVELOPMENT MODE: Always show admin links
-  const navigationLinks = [...baseNavigationLinks, ...adminNavigationLinks];
+  // Only show admin links to admin users
+  const navigationLinks = isAdmin 
+    ? [...baseNavigationLinks, ...adminNavigationLinks]
+    : baseNavigationLinks;
   
   // Wallet connection handlers
   const handleConnectWallet = (address: string) => {
@@ -60,11 +62,11 @@ export default function Layout({ children, title = 'OTORI Vision Token' }: Layou
   
   // Redirect if trying to access restricted pages
   useEffect(() => {
-    // DEVELOPMENT MODE: Disable redirect for admin pages
-    console.log('DEVELOPMENT MODE: Allowing access to admin pages');
-    // if (!isAdmin && (router.pathname === '/portfolio' || router.pathname === '/admin')) {
-    //   router.push('/');
-    // }
+    // Redirect non-admin users trying to access admin pages
+    if (!isAdmin && (router.pathname === '/portfolio' || router.pathname === '/admin')) {
+      console.log('Non-admin user attempting to access restricted page - redirecting to home');
+      router.push('/');
+    }
   }, [isAdmin, router.pathname]);
   
   return (

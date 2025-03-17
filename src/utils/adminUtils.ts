@@ -16,9 +16,11 @@ export function isAdminWallet(address: string): boolean {
   console.log('Checking if wallet is admin:', address);
   console.log('Admin wallets:', ADMIN_WALLETS);
   
-  // FORCE ADMIN ACCESS FOR DEVELOPMENT
-  console.log('DEVELOPMENT MODE: Forcing admin access for all wallets');
-  return true;
+  // For security, skip the check only if address is empty or undefined
+  if (!address) {
+    console.log('No wallet address provided - denying admin access');
+    return false;
+  }
   
   // During development, allow any wallet with the wildcard
   if (ADMIN_WALLETS.includes('*')) {
@@ -27,7 +29,10 @@ export function isAdminWallet(address: string): boolean {
   }
   
   // Case-insensitive comparison to avoid issues with address format
-  return ADMIN_WALLETS.some(adminWallet => 
+  const isAdmin = ADMIN_WALLETS.some(adminWallet => 
     adminWallet.toLowerCase() === address.toLowerCase()
   );
+  
+  console.log(`Admin access for ${address}: ${isAdmin ? 'GRANTED' : 'DENIED'}`);
+  return isAdmin;
 } 
