@@ -70,6 +70,13 @@ export default function AdminDashboard() {
         </a>
       </div>
       
+      {/* Debug Info */}
+      <div className="mb-4 p-2 bg-gray-100 rounded">
+        <p className="text-xs">Debug - isAdmin: {String(isAdmin)}</p>
+        <p className="text-xs">Debug - Address: {address || 'No address'}</p>
+        <p className="text-xs">Debug - Active View: {activeView}</p>
+      </div>
+      
       {/* Changed from hardcoded "true" to use isAdmin state */}
       {isAdmin ? (
         <>
@@ -127,91 +134,35 @@ export default function AdminDashboard() {
           </div>
           
           <div className="mt-6">
-            {/* Fund Metrics Summary */}
-            <div className="p-6 bg-gray-50 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">OVT Fund Metrics</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <p className="text-sm text-gray-500">Total Value</p>
-                  <p className="text-xl font-bold">{navData?.totalValue || "Loading..."}</p>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <p className="text-sm text-gray-500">Change</p>
-                  <p className={`text-xl font-bold ${
-                    parseFloat(navData?.changePercentage || "0") >= 0 
-                      ? 'text-green-600' 
-                      : 'text-red-600'
-                  }`}>
-                    {navData?.changePercentage || "0%"}
-                  </p>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <p className="text-sm text-gray-500">Data Source</p>
-                  <p className="text-xl font-bold">
-                    {navData?.dataSource?.isMock ? "Simulated Data" : "Real Contract Data"}
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            {/* OVT Rune Information */}
-            <div className="p-6 bg-white border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">OVT Rune Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <div className="mb-4">
-                    <p className="text-sm font-medium text-gray-500">Status</p>
-                    <p className="text-base">Not Etched</p>
-                    <p className="text-sm text-gray-500">Bitcoin Rune representing the OTORI Vision Token</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Initial Supply</p>
-                    <p className="text-base">500,000</p>
-                  </div>
-                </div>
-                <div>
-                  <div className="mb-4">
-                    <p className="text-sm font-medium text-gray-500">Current Supply</p>
-                    <p className="text-base">500,000</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Minting</p>
-                    <p className="text-base">Enabled</p>
-                    <p className="text-sm font-medium text-gray-500 mt-2">Minting Events</p>
-                    <p className="text-base">0</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Admin View Content */}
+            {/* Simple test rendering to debug component issues */}
             <div className="p-6">
+              <h3 className="text-lg font-semibold">Admin Component Test</h3>
+              <p className="mb-4">Current Active View: {activeView}</p>
+              
               {activeView === AdminView.POSITIONS && (
-                <PositionManagement onActionRequiringMultiSig={handleActionRequiringMultiSig} />
+                <div className="p-4 bg-blue-50 rounded">
+                  <p>Position Management Component Would Render Here</p>
+                </div>
               )}
               
               {activeView === AdminView.MINT && (
-                <TokenMinting onActionRequiringMultiSig={handleActionRequiringMultiSig} />
+                <div className="p-4 bg-green-50 rounded">
+                  <p>Token Minting Component Would Render Here</p>
+                </div>
               )}
               
               {activeView === AdminView.RUNE_MINT && (
-                <RuneMinting />
+                <div className="p-4 bg-yellow-50 rounded">
+                  <p>Rune Minting Component Would Render Here</p>
+                </div>
               )}
               
               {activeView === AdminView.HISTORY && (
-                <TransactionHistory />
+                <div className="p-4 bg-purple-50 rounded">
+                  <p>Transaction History Component Would Render Here</p>
+                </div>
               )}
             </div>
-            
-            {/* Multi-Sig Modal */}
-            {isMultiSigModalOpen && pendingAction && (
-              <MultiSigApproval
-                isOpen={isMultiSigModalOpen}
-                onClose={handleMultiSigCancel}
-                onComplete={handleMultiSigComplete}
-                action={pendingAction}
-              />
-            )}
           </div>
         </>
       ) : (
