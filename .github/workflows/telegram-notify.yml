@@ -1,0 +1,18 @@
+name: Telegram Notification
+
+on: [push]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Telegram Message on Push
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TG_CHAT_ID }}      # Group Chat ID (e.g., -1001234567890)
+          token: ${{ secrets.TG_BOT_TOKEN }}  # Bot token from BotFather
+          message: |
+            Repository: ${{ github.repository }}
+            Actor: ${{ github.actor }}
+            Commit: [${{ github.sha }}]($(echo "https://github.com/${{ github.repository }}/commit/${{ github.sha }}"))
+            Message: ${{ github.event.head_commit.message }}
