@@ -84,7 +84,7 @@ export default function Layout({ children, title = 'OTORI Vision Token' }: Layou
   return (
     <div className="min-h-screen bg-gray-50">
       <Head>
-        <title>{title} | OVT Fund</title>
+        <title>{title} | OTORI</title>
         <meta name="description" content="OTORI Vision Token Fund" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -95,7 +95,7 @@ export default function Layout({ children, title = 'OTORI Vision Token' }: Layou
             <div className="flex items-center">
               <Link href="/" passHref>
                 <span className="flex-shrink-0 flex items-center cursor-pointer">
-                  <img className="h-8 w-auto" src="/logo.svg" alt="OVT Fund" />
+                  <img className="h-8 w-auto" src="/logo.svg" alt="OTORI" />
                   <span className="ml-2 text-lg font-bold text-gray-900">OVT Fund</span>
                 </span>
               </Link>
