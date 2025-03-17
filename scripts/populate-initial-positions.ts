@@ -125,4 +125,7 @@ async function populatePositions() {
 }
 
 // Run the script
-populatePositions().catch(console.error); 
+populatePositions().catch(console.error);
+
+// Add this at the end of the file to make it a module
+export {}; 
