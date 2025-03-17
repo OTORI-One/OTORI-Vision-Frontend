@@ -11,6 +11,7 @@ import { useBitcoinPrice } from '../src/hooks/useBitcoinPrice';
 import { useLaserEyes } from '@omnisat/lasereyes';
 import Layout from '../components/Layout';
 import { useTradingModule } from '../src/hooks/useTradingModule';
+import { isAdminWallet } from '../src/utils/adminUtils';
 
 export default function Dashboard() {
   const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
@@ -34,6 +35,20 @@ export default function Dashboard() {
   
   // Use the trading hook
   const { buyOVT, sellOVT, getMarketPrice } = useTradingModule();
+
+  // State to track if the connected wallet is an admin
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  
+  // Check if wallet is admin
+  useEffect(() => {
+    if (connectedAddress) {
+      const adminStatus = isAdminWallet(connectedAddress);
+      console.log('Index page - Connected address is admin?', adminStatus);
+      setIsAdmin(adminStatus);
+    } else {
+      setIsAdmin(false);
+    }
+  }, [connectedAddress]);
 
   // Calculate OVT price based on NAV
   const ovtPrice = useMemo(() => {
@@ -283,7 +298,7 @@ export default function Dashboard() {
           </div>
           
           {/* Admin Dashboard (only shown to connected admin wallets) */}
-          {connectedAddress && (
+          {connectedAddress && isAdmin && (
             <div className="col-span-1 lg:col-span-12 mt-2">
               <AdminDashboard />
             </div>

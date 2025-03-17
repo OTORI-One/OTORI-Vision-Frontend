@@ -5,8 +5,10 @@ import TokenMinting from './TokenMinting';
 import RuneMinting from './RuneMinting';
 import TransactionHistory from './TransactionHistory';
 import { useOVTClient } from '../../src/hooks/useOVTClient';
-import { isAdminWallet } from '../../src/utils/adminUtils';
-import { useLaserEyes } from '@omnisat/lasereyes';
+import { isAdminWallet, ADMIN_WALLETS } from '../../src/utils/adminUtils';
+import { useLaserEyes, XVERSE, UNISAT } from '@omnisat/lasereyes';
+import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import Link from 'next/link';
 
 enum AdminView {
   POSITIONS = 'positions',
@@ -20,27 +22,77 @@ export default function AdminDashboard() {
   const [isMultiSigModalOpen, setIsMultiSigModalOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [isLocalLoading, setIsLocalLoading] = useState(true);
   const { isLoading, error, navData, formatValue } = useOVTClient();
-  const { address } = useLaserEyes();
+  const { address, connect, disconnect, network } = useLaserEyes();
 
-  // Check if current wallet is an admin
+  const addDebugLog = (message: string) => {
+    console.log('[AdminDashboard]', message);
+    setDebugLogs(prev => [...prev, message]);
+  };
+
+  // Check if current wallet is an admin with delay to prevent race conditions
   useEffect(() => {
-    console.log('AdminDashboard - Current address:', address);
-    console.log('Address type:', typeof address, 'Address length:', address?.length || 0);
+    addDebugLog(`Current address: ${address || 'No address'}`);
+    addDebugLog(`Network: ${network || 'Unknown'}`);
     
-    // Explicit check that address exists and is non-empty
-    if (!address || address.trim() === '') {
-      console.log('AdminDashboard - No valid address detected, setting isAdmin to false');
-      setIsAdmin(false);
-      return;
+    // Set loading to true when address changes
+    setIsLocalLoading(true);
+    
+    // Small delay to ensure other components have processed the wallet connection
+    const timer = setTimeout(() => {
+      if (!address) {
+        addDebugLog('No wallet address detected, admin status is false');
+        setIsAdmin(false);
+        setIsLocalLoading(false);
+        return;
+      }
+      
+      // List admin wallets for debugging
+      addDebugLog(`Admin wallets (${ADMIN_WALLETS.length}): ${ADMIN_WALLETS.join(', ')}`);
+      
+      // Check admin status with our improved logging
+      const adminStatus = isAdminWallet(address);
+      addDebugLog(`Admin status check result: ${adminStatus}`);
+      setIsAdmin(adminStatus);
+      setIsLocalLoading(false);
+    }, 500); // 500ms delay
+    
+    return () => clearTimeout(timer);
+  }, [address, network]);
+
+  // Listen for wallet connection events from WalletConnector
+  useEffect(() => {
+    const handleWalletConnection = (e: CustomEvent) => {
+      addDebugLog(`[AdminDashboard] Detected wallet connection event: ${e.detail.address}`);
+      // This is just for logging, the LaserEyes hook should handle the actual state update
+    };
+    
+    window.addEventListener('wallet-connected', handleWalletConnection as EventListener);
+    return () => {
+      window.removeEventListener('wallet-connected', handleWalletConnection as EventListener);
+    };
+  }, []);
+
+  // Custom wallet connection handlers that utilize the LaserEyes hook
+  const handleConnectWallet = async (walletType: 'xverse' | 'unisat') => {
+    try {
+      addDebugLog(`Attempting to connect ${walletType} wallet...`);
+      if (walletType === 'xverse') {
+        await connect(XVERSE);
+      } else {
+        await connect(UNISAT);
+      }
+    } catch (err) {
+      addDebugLog(`Error connecting wallet: ${err}`);
     }
-    
-    // Check admin status
-    const adminStatus = isAdminWallet(address);
-    console.log('AdminDashboard - Admin status check result:', adminStatus);
-    console.log('AdminDashboard - Is admin?', adminStatus);
-    setIsAdmin(adminStatus);
-  }, [address]);
+  };
+  
+  const handleDisconnectWallet = () => {
+    addDebugLog('Disconnecting wallet...');
+    disconnect();
+  };
 
   const handleActionRequiringMultiSig = (action: any) => {
     setPendingAction(action);
@@ -68,17 +120,29 @@ export default function AdminDashboard() {
     setIsMultiSigModalOpen(false);
   };
 
+  // Return loading indicator while checking admin status
+  if (isLocalLoading) {
+    return (
+      <div className="w-full bg-white shadow-md rounded-lg p-6 font-sans text-gray-800">
+        <div className="flex items-center justify-center p-12">
+          <div className="animate-pulse flex flex-col items-center">
+            <div className="h-8 w-32 bg-gray-200 rounded mb-4"></div>
+            <div className="text-gray-500">Verifying admin status...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Return the admin dashboard or access denied message based on admin status
   return (
     <div className="w-full bg-white shadow-md rounded-lg p-6 font-sans text-gray-800">
       {/* Back Button */}
       <div className="mb-4">
-        <a href="/" className="inline-flex items-center text-blue-600 hover:text-blue-800">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
+        <Link href="/" className="inline-flex items-center text-blue-600 hover:text-blue-800">
+          <ArrowLeftIcon className="h-4 w-4 mr-1" />
           <span>Back to Dashboard</span>
-        </a>
+        </Link>
       </div>
       
       {/* Debug Info */}
@@ -86,6 +150,50 @@ export default function AdminDashboard() {
         <p className="text-xs">Debug - isAdmin: {String(isAdmin)}</p>
         <p className="text-xs">Debug - Address: {address || 'No address'}</p>
         <p className="text-xs">Debug - Active View: {activeView}</p>
+        <p className="text-xs">Debug - Network: {network || 'Unknown'}</p>
+        
+        {/* Manual wallet connection if no address detected */}
+        {!address && (
+          <div className="mt-2">
+            <p className="text-xs mb-1">No wallet connected. Try connecting manually:</p>
+            <div className="flex space-x-2">
+              <button 
+                onClick={() => handleConnectWallet('xverse')}
+                className="text-xs px-2 py-1 bg-blue-500 text-white rounded"
+              >
+                Connect Xverse
+              </button>
+              <button 
+                onClick={() => handleConnectWallet('unisat')}
+                className="text-xs px-2 py-1 bg-orange-500 text-white rounded"
+              >
+                Connect Unisat
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Disconnect button if address detected */}
+        {address && (
+          <div className="mt-2">
+            <button 
+              onClick={handleDisconnectWallet}
+              className="text-xs px-2 py-1 bg-gray-500 text-white rounded"
+            >
+              Disconnect Wallet
+            </button>
+          </div>
+        )}
+        
+        {/* Debug Logs */}
+        <div className="mt-2">
+          <p className="text-xs font-semibold">Debug Logs:</p>
+          <div className="max-h-24 overflow-y-auto text-xs">
+            {debugLogs.map((log, index) => (
+              <div key={index} className="text-xs">{log}</div>
+            ))}
+          </div>
+        </div>
       </div>
       
       {/* Changed from hardcoded "true" to use isAdmin state */}
@@ -145,35 +253,91 @@ export default function AdminDashboard() {
           </div>
           
           <div className="mt-6">
-            {/* Simple test rendering to debug component issues */}
-            <div className="p-6">
-              <h3 className="text-lg font-semibold">Admin Component Test</h3>
-              <p className="mb-4">Current Active View: {activeView}</p>
-              
-              {activeView === AdminView.POSITIONS && (
-                <div className="p-4 bg-blue-50 rounded">
-                  <p>Position Management Component Would Render Here</p>
+            {/* Fund Metrics Summary */}
+            <div className="p-6 bg-gray-50 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">OVT Fund Metrics</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white p-4 rounded-lg shadow-sm">
+                  <p className="text-sm text-gray-500">Total Value</p>
+                  <p className="text-xl font-bold">{navData?.totalValue || "Loading..."}</p>
                 </div>
+                <div className="bg-white p-4 rounded-lg shadow-sm">
+                  <p className="text-sm text-gray-500">Change</p>
+                  <p className={`text-xl font-bold ${
+                    parseFloat(navData?.changePercentage || "0") >= 0 
+                      ? 'text-green-600' 
+                      : 'text-red-600'
+                  }`}>
+                    {navData?.changePercentage || "0%"}
+                  </p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-sm">
+                  <p className="text-sm text-gray-500">Data Source</p>
+                  <p className="text-xl font-bold">
+                    {navData?.dataSource?.isMock ? "Simulated Data" : "Real Contract Data"}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* OVT Rune Information */}
+            <div className="p-6 bg-white border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">OVT Rune Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <div className="mb-4">
+                    <p className="text-sm font-medium text-gray-500">Status</p>
+                    <p className="text-base">Not Etched</p>
+                    <p className="text-sm text-gray-500">Bitcoin Rune representing the OTORI Vision Token</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Initial Supply</p>
+                    <p className="text-base">500,000</p>
+                  </div>
+                </div>
+                <div>
+                  <div className="mb-4">
+                    <p className="text-sm font-medium text-gray-500">Current Supply</p>
+                    <p className="text-base">500,000</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Minting</p>
+                    <p className="text-base">Enabled</p>
+                    <p className="text-sm font-medium text-gray-500 mt-2">Minting Events</p>
+                    <p className="text-base">0</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Admin View Content */}
+            <div className="p-6">
+              {activeView === AdminView.POSITIONS && (
+                <PositionManagement onActionRequiringMultiSig={handleActionRequiringMultiSig} />
               )}
               
               {activeView === AdminView.MINT && (
-                <div className="p-4 bg-green-50 rounded">
-                  <p>Token Minting Component Would Render Here</p>
-                </div>
+                <TokenMinting onActionRequiringMultiSig={handleActionRequiringMultiSig} />
               )}
               
               {activeView === AdminView.RUNE_MINT && (
-                <div className="p-4 bg-yellow-50 rounded">
-                  <p>Rune Minting Component Would Render Here</p>
-                </div>
+                <RuneMinting />
               )}
               
               {activeView === AdminView.HISTORY && (
-                <div className="p-4 bg-purple-50 rounded">
-                  <p>Transaction History Component Would Render Here</p>
-                </div>
+                <TransactionHistory />
               )}
             </div>
+            
+            {/* Multi-Sig Modal */}
+            {isMultiSigModalOpen && pendingAction && (
+              <MultiSigApproval
+                isOpen={isMultiSigModalOpen}
+                onClose={handleMultiSigCancel}
+                onComplete={handleMultiSigComplete}
+                action={pendingAction}
+              />
+            )}
           </div>
         </>
       ) : (
@@ -183,6 +347,16 @@ export default function AdminDashboard() {
               <p className="text-sm text-red-700">
                 Access denied. This dashboard is only accessible to admin wallets.
               </p>
+              {address && (
+                <p className="text-sm text-red-700 mt-2">
+                  Your current address "{address}" is not in the admin whitelist.
+                </p>
+              )}
+              {!address && (
+                <p className="text-sm text-red-700 mt-2">
+                  You need to connect a wallet to access the admin dashboard.
+                </p>
+              )}
             </div>
           </div>
         </div>
