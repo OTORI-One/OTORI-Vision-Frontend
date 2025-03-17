@@ -4,7 +4,7 @@ import { useOVTClient } from '../src/hooks/useOVTClient';
 import { useLaserEyes } from '@omnisat/lasereyes';
 import { getDataSourceIndicator } from '../src/lib/hybridModeUtils';
 import DataSourceIndicator from '../src/components/DataSourceIndicator';
-import mockPortfolioData from '../mock-data/portfolio-positions.json';
+import mockPortfolioData from '../src/mock-data/portfolio-positions.json';
 
 // Function to ensure portfolio data is loaded in localStorage
 export function ensurePortfolioDataLoaded() {
