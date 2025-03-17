@@ -19,8 +19,14 @@ export default function WalletConnector({ onConnect, onDisconnect, connectedAddr
       // Dispatch a custom event that other components can listen for
       const event = new CustomEvent('wallet-connected', { detail: { address } });
       window.dispatchEvent(event);
+      
+      // Call onConnect directly if address changes from the connectedAddress
+      if (address !== connectedAddress) {
+        console.log('Address changed or newly connected, calling onConnect with:', address);
+        onConnect(address);
+      }
     }
-  }, [address]);
+  }, [address, connectedAddress, onConnect]);
 
   const handleConnect = useCallback(async (wallet: ProviderType) => {
     setIsConnecting(true);

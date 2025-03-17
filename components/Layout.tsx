@@ -17,6 +17,8 @@ export default function Layout({ children, title = 'OTORI Vision Token' }: Layou
   const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const DISABLE_ADMIN_REDIRECTS = true; // Set to false when everything is working
   
   // Set isMounted to true after component mounts
   useEffect(() => {
@@ -29,6 +31,9 @@ export default function Layout({ children, title = 'OTORI Vision Token' }: Layou
     const adminStatus = connectedAddress ? isAdminWallet(connectedAddress) : false;
     console.log('Layout - Is admin?', adminStatus);
     setIsAdmin(adminStatus);
+    
+    // Set loading to false after checking admin status
+    setIsLoading(false);
   }, [connectedAddress]);
   
   // Navigation links - basic links always shown
@@ -44,8 +49,10 @@ export default function Layout({ children, title = 'OTORI Vision Token' }: Layou
   ];
   
   // Combine navigation links based on admin status
-  // DEVELOPMENT MODE: Always show admin links
-  const navigationLinks = [...baseNavigationLinks, ...adminNavigationLinks];
+  // Only show admin links to admin users
+  const navigationLinks = isAdmin 
+    ? [...baseNavigationLinks, ...adminNavigationLinks]
+    : baseNavigationLinks;
   
   // Wallet connection handlers
   const handleConnectWallet = (address: string) => {
@@ -60,12 +67,19 @@ export default function Layout({ children, title = 'OTORI Vision Token' }: Layou
   
   // Redirect if trying to access restricted pages
   useEffect(() => {
-    // DEVELOPMENT MODE: Disable redirect for admin pages
-    console.log('DEVELOPMENT MODE: Allowing access to admin pages');
-    // if (!isAdmin && (router.pathname === '/portfolio' || router.pathname === '/admin')) {
-    //   router.push('/');
-    // }
-  }, [isAdmin, router.pathname]);
+    // Skip redirects if the debug flag is enabled
+    if (DISABLE_ADMIN_REDIRECTS) {
+      console.log('Admin redirects are disabled for debugging');
+      return;
+    }
+    
+    // Only redirect if we're sure the user is not an admin AND loading is complete
+    // Add a check to make sure we have a valid address before redirecting
+    if (!isLoading && connectedAddress && !isAdmin && (router.pathname === '/portfolio' || router.pathname === '/admin')) {
+      console.log('Non-admin user attempting to access restricted page - redirecting to home');
+      router.push('/');
+    }
+  }, [isAdmin, router.pathname, connectedAddress, isLoading]);
   
   return (
     <div className="min-h-screen bg-gray-50">

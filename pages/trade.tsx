@@ -6,6 +6,7 @@ import { useLaserEyes } from '@omnisat/lasereyes';
 import { getDataSourceIndicator } from '../src/lib/hybridModeUtils';
 
 export default function TradePage() {
+  const [isWalletConnected, setIsWalletConnected] = useState(false);
   const { baseCurrency } = useOVTClient();
   const { address: walletAddress, network } = useLaserEyes();
   const isConnected = !!walletAddress;
@@ -28,7 +29,7 @@ export default function TradePage() {
   // Add this effect to ensure wallet connection state is properly detected
   useEffect(() => {
     const updateConnectionStatus = () => {
-      setIsWalletConnected(!!address);
+      setIsWalletConnected(!!walletAddress);
     };
     
     // Call immediately and also listen for wallet connection events
@@ -38,7 +39,7 @@ export default function TradePage() {
     return () => {
       window.removeEventListener('wallet-connected', updateConnectionStatus);
     };
-  }, [address]);
+  }, [walletAddress]);
   
   return (
     <Layout title="Trade OVT">

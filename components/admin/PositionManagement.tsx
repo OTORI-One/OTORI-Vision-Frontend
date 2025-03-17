@@ -260,7 +260,10 @@ export default function PositionManagement({ onActionRequiringMultiSig }: Positi
                       Current: {formatValue(position.current)}
                     </div>
                     <div className={`text-sm ${position.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {position.change >= 0 ? '+' : ''}{position.change}%
+                      {position.change >= 0 ? '+' : ''}
+                      {String(position.change).includes('%') 
+                        ? String(position.change) 
+                        : `${position.change}%`}
                     </div>
                   </div>
                 </div>

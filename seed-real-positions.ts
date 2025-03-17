@@ -15,6 +15,9 @@ dotenv.config({ path: path.resolve(__dirname, '.env.local') });
 
 // Type definition for portfolio positions
 interface Portfolio {
+  id: string;          // Unique identifier
+  navHistory: any[];   // History of NAV values
+  holdings: any[];     // Holdings data
   name: string;
   value: number;      // in sats
   description: string;
@@ -229,8 +232,24 @@ async function main() {
       console.log(`  Token Amount: ${position.tokenAmount} tokens`);
       console.log(`  Price Per Token: ${position.pricePerToken} sats`);
       
+      // Create new position object
+      const newPosition: Portfolio = {
+        id: position.transactionId || `mockpos-${position.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
+        navHistory: [],
+        holdings: [],
+        name: position.name,
+        description: position.description,
+        value: position.value,
+        tokenAmount: position.tokenAmount,
+        pricePerToken: position.pricePerToken,
+        current: position.value,
+        change: 0,
+        transactionId: position.transactionId,
+        address: position.address || `mockaddr-${position.name.toLowerCase().replace(/\s+/g, '-')}`
+      };
+      
       // Add position to the validator
-      const result = await client.addPosition(position);
+      const result = await client.addPosition(newPosition);
       
       if (result.success) {
         console.log(`✅ Successfully added position: ${position.name}`);
@@ -277,3 +296,6 @@ main().catch(error => {
   console.error('Unhandled error:', error);
   process.exit(1);
 });
+
+// Add this at the end of the file to make it a module
+export {};
