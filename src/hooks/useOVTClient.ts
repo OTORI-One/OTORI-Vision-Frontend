@@ -9,9 +9,10 @@ import {
   getTokenSupplyData,
   getHybridModeConfig
 } from '../lib/hybridModeUtils';
+import { formatValue, SATS_PER_BTC } from '../lib/formatting';
 
-// Constants for numeric handling
-export const SATS_PER_BTC = 100000000;
+// Export constants for backward compatibility
+export { SATS_PER_BTC };
 
 export interface Portfolio {
   name: string;
@@ -116,43 +117,6 @@ export const createCurrencyFormatter = (btcPrice: number | null) => {
     // Small values
     return `${Math.floor(sats)} sats`;
   };
-};
-
-// Helper function to format values consistently
-const formatValue = (sats: number, displayMode: 'btc' | 'usd' = 'btc', btcPrice?: number | null): string => {
-  // Add debugging
-  console.log(`formatValue called with sats: ${sats}, mode: ${displayMode}, btcPrice: ${btcPrice}`);
-  
-  if (displayMode === 'usd' && btcPrice) {
-    const usdValue = (sats / SATS_PER_BTC) * btcPrice;
-    // USD formatting
-    if (usdValue >= 1000000) {
-      return `$${(usdValue / 1000000).toFixed(2)}M`; // Above 1M: 2 decimals with M
-    }
-    if (usdValue >= 1000) {
-      return `$${(usdValue / 1000).toFixed(1)}k`; // Below 1M: 1 decimal with k
-    }
-    if (usdValue < 100) {
-      return `$${usdValue.toFixed(2)}`; // Below 100: 2 decimals
-    }
-    return `$${Math.round(usdValue)}`; // Below 1000: no decimals
-  }
-
-  // BTC display mode
-  if (sats >= 10000000) { // 0.1 BTC or more
-    return `₿${(sats / SATS_PER_BTC).toFixed(2)}`; // Show as BTC with 2 decimals
-  }
-  
-  // Show as sats with k/M notation
-  if (sats >= 1000000) {
-    return `${(sats / 1000000).toFixed(2)}M sats`; // Millions
-  }
-  if (sats >= 1000) {
-    return `${(sats / 1000).toFixed(1)}k sats`; // Thousands
-  }
-  
-  // Small values
-  return `${Math.floor(sats)} sats`;
 };
 
 // Import mock data

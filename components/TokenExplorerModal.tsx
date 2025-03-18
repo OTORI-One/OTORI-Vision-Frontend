@@ -2,6 +2,7 @@ import { Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 import { useOVTClient } from '../src/hooks/useOVTClient';
+import { formatTokenAmount, formatValue } from '../src/lib/formatting';
 
 interface TokenExplorerModalProps {
   isOpen: boolean;
@@ -25,30 +26,19 @@ interface TokenExplorerModalProps {
   baseCurrency?: 'usd' | 'btc';
 }
 
-// Format token amounts consistently across the application
-const formatTokenAmount = (value: string): string => {
-  const numericValue = parseFloat(value.replace(/[^0-9.]/g, ''));
-  if (isNaN(numericValue)) return '0 tokens';
-  
-  if (numericValue >= 1000000) {
-    return `${(numericValue / 1000000).toFixed(2)}M tokens`;
-  }
-  if (numericValue >= 1000) {
-    return `${Math.floor(numericValue / 1000)}k tokens`;
-  }
-  return `${Math.floor(numericValue)} tokens`;
-};
-
 export default function TokenExplorerModal({ isOpen, onClose, tokenData, baseCurrency = 'usd' }: TokenExplorerModalProps) {
-  const { formatValue } = useOVTClient();
+  // Get btcPrice from useOVTClient - use hook at the top level only
+  const { btcPrice } = useOVTClient();
+  
+  // Calculate derived data
   const profitLoss = tokenData.current - tokenData.initial;
   const profitLossPercentage = ((profitLoss / tokenData.initial) * 100).toFixed(2);
 
-  // Format values using the OVT client's formatValue function
-  const formattedInitial = formatValue(tokenData.initial, baseCurrency);
-  const formattedCurrent = formatValue(tokenData.current, baseCurrency);
-  const formattedProfitLoss = formatValue(Math.abs(profitLoss), baseCurrency);
-  const formattedTotalValue = formatValue(tokenData.totalValue, baseCurrency);
+  // Format values using the imported formatting utility functions
+  const formattedInitial = formatValue(tokenData.initial, baseCurrency, btcPrice);
+  const formattedCurrent = formatValue(tokenData.current, baseCurrency, btcPrice);
+  const formattedProfitLoss = formatValue(Math.abs(profitLoss), baseCurrency, btcPrice);
+  const formattedTotalValue = formatValue(tokenData.totalValue, baseCurrency, btcPrice);
 
   return (
     <Transition.Root show={isOpen} as={Fragment}>
@@ -149,24 +139,29 @@ export default function TokenExplorerModal({ isOpen, onClose, tokenData, baseCur
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-200 bg-white">
-                            {tokenData.transactions.map((transaction, idx) => (
-                              <tr key={idx}>
-                                <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-900">{transaction.date}</td>
-                                <td className="whitespace-nowrap px-3 py-4 text-sm">
-                                  <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                                    transaction.type === 'buy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                  }`}>
-                                    {transaction.type}
-                                  </span>
-                                </td>
-                                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                  {formatTokenAmount(transaction.amount)}
-                                </td>
-                                <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                  {formatValue(transaction.price, baseCurrency)}
-                                </td>
-                              </tr>
-                            ))}
+                            {tokenData.transactions.map((transaction, idx) => {
+                              // Pre-compute the formatted price
+                              const formattedTransactionPrice = formatValue(transaction.price, baseCurrency, btcPrice);
+                              
+                              return (
+                                <tr key={idx}>
+                                  <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-900">{transaction.date}</td>
+                                  <td className="whitespace-nowrap px-3 py-4 text-sm">
+                                    <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
+                                      transaction.type === 'buy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                    }`}>
+                                      {transaction.type}
+                                    </span>
+                                  </td>
+                                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    {formatTokenAmount(transaction.amount)}
+                                  </td>
+                                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                    {formattedTransactionPrice}
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>

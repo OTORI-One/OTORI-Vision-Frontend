@@ -188,14 +188,12 @@ const formatDate = (date: Date): string => {
   });
 };
 
+// Removed useOVTClient from getInitialTransaction to avoid React hook rules issues
 const getInitialTransaction = (tokenAmount: number, pricePerToken: number, currency: 'usd' | 'btc' = 'usd') => {
-  const { formatValue } = useOVTClient();
-  
   return {
     date: formatDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)), // 30 days ago
     type: 'buy' as const, // Using 'buy' to match the expected union type of 'buy' | 'sell'
     amount: tokenAmount.toString(), // Converting to string as expected by TokenExplorerModal
-    price: pricePerToken
-    // Removed formattedPrice as it's not expected in the type
+    price: pricePerToken // Pass the raw price, let TokenExplorerModal handle formatting
   };
 }; 

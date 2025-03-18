@@ -1,6 +1,10 @@
 import mockPortfolioData from '../mock-data/portfolio-positions.json';
 
-// Function to ensure portfolio data is loaded in localStorage
+/**
+ * Ensures portfolio data is loaded in localStorage
+ * This utility extracts the ensurePortfolioDataLoaded function from the portfolio page
+ * to allow proper usage across the application
+ */
 export function ensurePortfolioDataLoaded() {
   if (typeof window === 'undefined') return; // Skip on server-side
   
@@ -17,8 +21,14 @@ export function ensurePortfolioDataLoaded() {
         address: position.address || `mock-address-${position.name.replace(/\s+/g, '-').toLowerCase()}`
       }));
       
+      // Add lastSpikeDay if not present
+      const updatedPositions = portfolioPositions.map(position => ({
+        ...position,
+        lastSpikeDay: position.lastSpikeDay || 0
+      }));
+      
       // Store in localStorage
-      localStorage.setItem('ovt-portfolio-positions', JSON.stringify(portfolioPositions));
+      localStorage.setItem('ovt-portfolio-positions', JSON.stringify(updatedPositions));
       console.log('Mock portfolio data injected into localStorage');
       
       // Force a refresh if needed
