@@ -35,9 +35,18 @@ dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 const argv = require('minimist')(process.argv.slice(2));
 
 // Configuration
-const SYMBOL = argv.symbol || 'OVT';
-const INITIAL_SUPPLY = argv.supply || 500000;
-const DECIMALS = argv.decimals || 0;
+const SYMBOL = 'OTORI•VISION•TOKEN';
+const INITIAL_SUPPLY = 500000;
+const DECIMALS = 2;
+const DISPLAY_SYMBOL = '\u0FCB'; // Unicode ྋ symbol
+
+// LP/Trading simulation address - replace with new address when created
+const LP_ADDRESS = 'tb1p7pjgu34lprrtj24gq203zyyjjju34e9ftaarstjas2877zxuar2q5ru9yz'; 
+
+// Additional parameters for open minting
+const MINT_AMOUNT = 100000;  // Amount per mint transaction
+const MINT_CAP = 10;  // Maximum number of mints allowed
+
 const BITCOIN_WALLET = argv.wallet || '';
 const WALLET_ARG = BITCOIN_WALLET ? `-rpcwallet=${BITCOIN_WALLET}` : '';
 const LOG_DIR = path.resolve(__dirname, '../logs');
@@ -150,8 +159,8 @@ async function etchRune() {
             `${utxo.vout}`,
             `'${SYMBOL}'`,
             `${INITIAL_SUPPLY}`,
-            `{\\\"decimals\\\":${DECIMALS}}`,
-            `'${changeAddress}'`
+            `{\\\"decimals\\\":${DECIMALS},\\\"spacers\\\":2080,\\\"terms\\\":{\\\"cap\\\":${MINT_CAP},\\\"amount\\\":${MINT_AMOUNT}},\\\"symbol\\\":${DISPLAY_SYMBOL.charCodeAt(0)}}`,
+            `'${LP_ADDRESS}'`
         ].join(' ');
         
         // Create the rune etching transaction
