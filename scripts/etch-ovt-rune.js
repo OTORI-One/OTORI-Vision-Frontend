@@ -20,6 +20,7 @@
  *   --supply     Initial supply (default: 500000)
  *   --decimals   Decimals for the rune (default: 0)
  *   --wallet     Bitcoin Core wallet to use (default: '')
+ *   --test       Run in test mode without broadcasting transactions
  */
 
 const { execSync } = require('child_process');
@@ -33,6 +34,9 @@ dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 
 // Parse command line arguments
 const argv = require('minimist')(process.argv.slice(2));
+
+// Add test mode flag
+const TEST_MODE = argv.test || false;
 
 // Configuration
 const SYMBOL = 'OTORI•VISION•TOKEN';
@@ -88,6 +92,24 @@ function log(message) {
 function execBitcoinCli(command) {
     const fullCommand = `${BITCOIN_CLI} ${NETWORK_ARG} ${WALLET_ARG} ${command}`;
     log(`Executing: ${fullCommand}`);
+    
+    // In test mode, don't actually execute critical commands
+    if (TEST_MODE && (command.includes('etchrune') || command.includes('sendrawtransaction'))) {
+        log(`TEST MODE: Would execute: ${fullCommand}`);
+        
+        // For etchrune, return dummy transaction hex
+        if (command.includes('etchrune')) {
+            return "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+        }
+        
+        // For sendrawtransaction, return dummy txid
+        if (command.includes('sendrawtransaction')) {
+            return "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890";
+        }
+        
+        return "TEST_RESULT";
+    }
+    
     try {
         const output = execSync(fullCommand, { encoding: 'utf8' });
         return output.trim();
@@ -130,6 +152,10 @@ function getChangeAddress() {
 async function etchRune() {
     try {
         log(`Starting OVT rune etching process on ${BITCOIN_NETWORK}...`);
+        
+        if (TEST_MODE) {
+            log('TEST MODE: This is a dry run. No transactions will be broadcast.');
+        }
         
         // Check Bitcoin Core connection
         const networkInfo = execBitcoinCli('getnetworkinfo');
@@ -196,6 +222,15 @@ async function etchRune() {
         fs.writeFileSync(RUNE_DATA_PATH, JSON.stringify(runeData, null, 2));
         log(`Saved rune data to: ${RUNE_DATA_PATH}`);
         
+        if (TEST_MODE) {
+            log('TEST MODE: Dry run completed successfully. The script appears to be configured correctly.');
+            return {
+                success: true,
+                test: true,
+                message: 'Dry run completed successfully.'
+            };
+        }
+        
         log('OVT rune etching process completed successfully!');
         
         return {
@@ -219,7 +254,10 @@ async function etchRune() {
 // Execute the script
 if (require.main === module) {
     etchRune().then(result => {
-        if (result.success) {
+        if (result.test) {
+            console.log(`\nDry run completed successfully. The script appears to be configured correctly.`);
+            process.exit(0);
+        } else if (result.success) {
             console.log(`\nOVT Rune etched successfully!`);
             console.log(`TXID: ${result.txid}`);
             console.log(`Symbol: ${result.symbol}`);
