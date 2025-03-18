@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useHybridMode } from '../hooks/useHybridMode';
 
 interface RuneInfoProps {
   className?: string;
@@ -11,6 +12,7 @@ interface RuneData {
   mintingEnabled: boolean;
   txid: string;
   createdAt: string;
+  decimals?: number;
   mintingTransactions?: Array<{
     amount: number;
     txid: string;
@@ -26,21 +28,63 @@ const RuneInfo: React.FC<RuneInfoProps> = ({ className }) => {
   const [runeData, setRuneData] = useState<RuneData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { getDataSource } = useHybridMode();
+  const dataSource = getDataSource('token');
 
   useEffect(() => {
     const fetchRuneData = async () => {
       try {
-        // In a real implementation, this would fetch from an API
-        // For now, we'll use a placeholder
-        setRuneData({
-          symbol: 'OVT',
-          initialSupply: 500000,
-          mintingEnabled: true,
-          txid: 'not_etched_yet',
-          createdAt: new Date().toISOString(),
-        });
-      } catch (err) {
-        setError('Failed to load Rune data');
+        setLoading(true);
+        
+        // Determine data source based on hybrid mode
+        if (dataSource === 'real') {
+          // Fetch real data from API
+          const response = await fetch('/api/rune-info');
+          
+          if (!response.ok) {
+            throw new Error('Failed to fetch rune data from API');
+          }
+          
+          const data = await response.json();
+          
+          if (!data.success) {
+            throw new Error(data.error || 'Failed to fetch rune data');
+          }
+          
+          setRuneData(data.runeData);
+        } else {
+          // Use mock data
+          try {
+            // Try to load from local file first
+            const response = await fetch('/api/mock/rune-data');
+            if (response.ok) {
+              const data = await response.json();
+              setRuneData(data);
+            } else {
+              // Fallback to hardcoded mock data
+              setRuneData({
+                symbol: 'OVT',
+                initialSupply: 500000,
+                totalSupply: 500000,
+                mintingEnabled: true,
+                txid: 'not_etched_yet',
+                createdAt: new Date().toISOString(),
+              });
+            }
+          } catch (err) {
+            // Fallback to hardcoded mock data
+            setRuneData({
+              symbol: 'OVT',
+              initialSupply: 500000,
+              totalSupply: 500000,
+              mintingEnabled: true,
+              txid: 'not_etched_yet',
+              createdAt: new Date().toISOString(),
+            });
+          }
+        }
+      } catch (err: any) {
+        setError(`Failed to load Rune data: ${err.message}`);
         console.error(err);
       } finally {
         setLoading(false);
@@ -48,7 +92,7 @@ const RuneInfo: React.FC<RuneInfoProps> = ({ className }) => {
     };
 
     fetchRuneData();
-  }, []);
+  }, [dataSource]);
 
   if (loading) {
     return (
@@ -80,11 +124,16 @@ const RuneInfo: React.FC<RuneInfoProps> = ({ className }) => {
     <div className={`bg-white p-6 rounded-lg shadow-md ${className}`}>
       <div className="flex justify-between items-center mb-2">
         <h2 className="text-xl font-bold">{runeData.symbol} Rune Information</h2>
-        <span className={`px-2 py-1 text-xs rounded-full ${isEtched 
-          ? 'bg-green-100 text-green-800' 
-          : 'bg-amber-100 text-amber-800'}`}>
-          {isEtched ? 'Etched' : 'Not Etched'}
-        </span>
+        <div className="flex items-center">
+          <span className={`px-2 py-1 text-xs rounded-full ${isEtched 
+            ? 'bg-green-100 text-green-800' 
+            : 'bg-amber-100 text-amber-800'}`}>
+            {isEtched ? 'Etched' : 'Not Etched'}
+          </span>
+          <span className="ml-2 px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">
+            {dataSource === 'real' ? 'Chain Data' : 'Mock Data'}
+          </span>
+        </div>
       </div>
       <p className="text-sm text-gray-500 mb-6">
         Bitcoin Rune representing the OTORI Vision Token
@@ -108,13 +157,19 @@ const RuneInfo: React.FC<RuneInfoProps> = ({ className }) => {
             <p className="text-sm font-medium text-gray-500">Minting Events</p>
             <p className="text-xl font-bold">{mintingCount}</p>
           </div>
+          {runeData.decimals !== undefined && (
+            <div>
+              <p className="text-sm font-medium text-gray-500">Decimals</p>
+              <p className="text-xl font-bold">{runeData.decimals}</p>
+            </div>
+          )}
         </div>
 
         {isEtched && (
           <div className="pt-4 border-t border-gray-200">
             <p className="text-sm font-medium text-gray-500 mb-2">Transaction</p>
             <a
-              href={`https://mempool.space/testnet/tx/${runeData.txid}`}
+              href={`https://mempool.space/${BITCOIN_NETWORK === 'signet' ? 'signet' : 'testnet'}/tx/${runeData.txid}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center text-blue-600 hover:text-blue-800 text-sm"
@@ -140,7 +195,7 @@ const RuneInfo: React.FC<RuneInfoProps> = ({ className }) => {
                     </span>
                   </div>
                   <a
-                    href={`https://mempool.space/testnet/tx/${tx.txid}`}
+                    href={`https://mempool.space/${BITCOIN_NETWORK === 'signet' ? 'signet' : 'testnet'}/tx/${tx.txid}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:text-blue-800 flex items-center"
@@ -159,5 +214,8 @@ const RuneInfo: React.FC<RuneInfoProps> = ({ className }) => {
     </div>
   );
 };
+
+// Get Bitcoin network from env
+const BITCOIN_NETWORK = process.env.NEXT_PUBLIC_BITCOIN_NETWORK || 'signet';
 
 export default RuneInfo; 
