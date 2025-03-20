@@ -1,0 +1,16 @@
+[Unit]
+Description=Ord Server for Bitcoin Ordinals
+After=network.target bitcoind.service
+Wants=bitcoind.service
+
+[Service]
+User=BTCPi
+ExecStart=/usr/local/bin/ord --signet server --http-port 8080
+Restart=on-failure
+RestartSec=10
+WorkingDirectory=/home/BTCPi
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target 
