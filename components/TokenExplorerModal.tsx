@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useMemo, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 import { useOVTClient } from '../src/hooks/useOVTClient';
@@ -27,18 +27,29 @@ interface TokenExplorerModalProps {
 }
 
 export default function TokenExplorerModal({ isOpen, onClose, tokenData, baseCurrency = 'usd' }: TokenExplorerModalProps) {
-  // Get btcPrice from useOVTClient - use hook at the top level only
   const { btcPrice } = useOVTClient();
   
-  // Calculate derived data
-  const profitLoss = tokenData.current - tokenData.initial;
-  const profitLossPercentage = ((profitLoss / tokenData.initial) * 100).toFixed(2);
+  // Memoize all calculations to prevent unnecessary re-renders
+  const {
+    profitLoss,
+    profitLossPercentage,
+    formattedInitial,
+    formattedCurrent,
+    formattedProfitLoss,
+    formattedTotalValue
+  } = useMemo(() => {
+    const profitLoss = tokenData.current - tokenData.initial;
+    const profitLossPercentage = ((profitLoss / tokenData.initial) * 100).toFixed(2);
 
-  // Format values using the imported formatting utility functions
-  const formattedInitial = formatValue(tokenData.initial, baseCurrency, btcPrice);
-  const formattedCurrent = formatValue(tokenData.current, baseCurrency, btcPrice);
-  const formattedProfitLoss = formatValue(Math.abs(profitLoss), baseCurrency, btcPrice);
-  const formattedTotalValue = formatValue(tokenData.totalValue, baseCurrency, btcPrice);
+    return {
+      profitLoss,
+      profitLossPercentage,
+      formattedInitial: formatValue(tokenData.initial, baseCurrency, btcPrice),
+      formattedCurrent: formatValue(tokenData.current, baseCurrency, btcPrice),
+      formattedProfitLoss: formatValue(Math.abs(profitLoss), baseCurrency, btcPrice),
+      formattedTotalValue: formatValue(tokenData.totalValue, baseCurrency, btcPrice)
+    };
+  }, [tokenData, baseCurrency, btcPrice]);
 
   return (
     <Transition.Root show={isOpen} as={Fragment}>
