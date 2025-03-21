@@ -3,7 +3,7 @@ import { useTradingModule } from '../src/hooks/useTradingModule';
 import { useOVTClient, SATS_PER_BTC } from '../src/hooks/useOVTClient';
 import { Switch } from '@headlessui/react';
 import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline';
-import DataSourceIndicator from '../src/components/DataSourceIndicator';
+import DataSourceIndicator from './DataSourceIndicator';
 
 export default function TradingInterface() {
   // State for buy/sell forms

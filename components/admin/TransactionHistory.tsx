@@ -7,7 +7,7 @@ import {
   PlusIcon, 
   MinusIcon 
 } from '@heroicons/react/24/outline';
-import DataSourceIndicator from '../../src/components/DataSourceIndicator';
+import DataSourceIndicator from '../DataSourceIndicator';
 
 interface Transaction {
   txid: string;
@@ -30,8 +30,7 @@ export default function TransactionHistory() {
     getTransactionHistory, 
     isLoading, 
     error, 
-    formatValue,
-    dataSourceIndicator 
+    formatValue
   } = useOVTClient();
 
   useEffect(() => {
@@ -105,14 +104,6 @@ export default function TransactionHistory() {
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Transaction History</h2>
         <div className="flex items-center space-x-2">
-          {dataSourceIndicator && dataSourceIndicator.transaction && (
-            <DataSourceIndicator 
-              isMock={dataSourceIndicator.transaction.isMock}
-              label={dataSourceIndicator.transaction.label}
-              color={dataSourceIndicator.transaction.color}
-              size="sm"
-            />
-          )}
           <select
             className="border rounded p-1 text-sm"
             value={filter}
