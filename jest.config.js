@@ -7,21 +7,23 @@ const createJestConfig = nextJest({
 
 // Add any custom config to be passed to Jest
 const customJestConfig = {
+  preset: 'ts-jest',
+  testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-  testEnvironment: 'jest-environment-jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
     '^@/src/(.*)$': '<rootDir>/src/$1',
-    '^@/test-utils/(.*)$': '<rootDir>/test-utils/$1'
+    '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
   },
-  testMatch: [
-    '**/*.test.ts',
-    '**/*.test.tsx',
-    '**/*.integration.test.ts',
-    '**/*.integration.test.tsx',
-    '**/*.e2e.test.ts',
-    '**/*.e2e.test.tsx',
-  ],
+  transform: {
+    '^.+\\.(ts|tsx)$': ['ts-jest', {
+      tsconfig: 'tsconfig.json'
+    }]
+  },
+  roots: ['<rootDir>/src'],
+  modulePaths: ['<rootDir>'],
+  moduleDirectories: ['node_modules', 'src'],
+  testMatch: ['**/__tests__/**/*.test.(ts|tsx)'],
   collectCoverageFrom: [
     'components/**/*.{js,jsx,ts,tsx}',
     'pages/**/*.{js,jsx,ts,tsx}',

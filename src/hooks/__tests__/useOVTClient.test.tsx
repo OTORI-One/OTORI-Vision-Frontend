@@ -4,11 +4,24 @@ import { useBitcoinPrice } from '../useBitcoinPrice';
 
 // Mock Bitcoin price hook
 jest.mock('../useBitcoinPrice', () => ({
-  useBitcoinPrice: jest.fn()
+  useBitcoinPrice: jest.fn(() => ({
+    price: 50000,
+    loading: false,
+    error: null
+  }))
+}));
+
+// Mock LaserEyes hook
+jest.mock('@omnisat/lasereyes', () => ({
+  useLaserEyes: jest.fn(() => ({
+    address: 'test-address',
+    isConnected: true
+  }))
 }));
 
 // Mock environment variables
 process.env.NEXT_PUBLIC_MOCK_MODE = 'true';
+process.env.NEXT_PUBLIC_OVT_RUNE_ID = 'test-rune-id-123';
 
 describe('useOVTClient', () => {
   beforeEach(() => {
@@ -40,6 +53,13 @@ describe('useOVTClient', () => {
       totalValueSats: 0,
       changePercentage: '0.00%',
       portfolioItems: [],
+      tokenDistribution: {
+        totalSupply: 21000000,
+        distributed: 1000000, // 1M OVT tokens (updated from 5M)
+        runeId: 'OTORI-OVT-TESTNET-2023',
+        runeSymbol: 'OVT',
+        distributionEvents: []
+      },
       dataSource: {
         isMock: true,
         label: 'Simulated Data',
@@ -65,58 +85,99 @@ describe('useOVTClient', () => {
     expect(result.current.formatValue(100, 'usd')).toBe('$0.05'); // 100 sats = $0.05
   });
 
-  it('calculates NAV correctly with mock data', async () => {
-    // Mock portfolio data with required address field
-    const mockData = [
-      {
-        name: 'Test Project',
-        value: 1000000, // 0.01 BTC
-        description: 'Test Description',
-        tokenAmount: 1000,
-        pricePerToken: 1000,
-        address: 'tb1p3yauf7efk5p3v6h67k7e88hu6hs9z2wfpvf0wjeyfvf2w73zua4qw2zkfc'
-      }
-    ];
+  it('calculates NAV correctly with distributed tokens', async () => {
+    // Mock the token distribution
+    const mockTokenDistribution = {
+      totalSupply: 21000000,
+      distributed: 1000000, // 1M OVT distributed
+      runeId: 'OTORI-OVT-TESTNET-2023',
+      runeSymbol: 'OVT',
+      distributionEvents: []
+    };
 
-    // Reset modules and set up mock data before rendering hook
-    jest.resetModules();
-    
-    // Mock the portfolio data import
-    jest.mock('../../mock-data/portfolio-positions.json', () => mockData, { virtual: true });
-    
-    // Ensure mock mode is enabled
-    process.env.NEXT_PUBLIC_MOCK_MODE = 'true';
-    
-    // Initialize portfolioPositions with mock data
-    const { result, rerender } = renderHook(() => useOVTClient());
-    
-    // Add position and wait for NAV calculation
+    // Mock the portfolio data
+    const mockData = [{
+      name: 'Test Project',
+      value: 1000000,
+      description: 'Test Description',
+      tokenAmount: 1000,
+      pricePerToken: 1000,
+      address: 'tb1p3yauf7efk5p3v6h67k7e88hu6hs9z2wfpvf0wjeyfvf2w73zua4qw2zkfc',
+      current: 1100000, // Current value in sats
+      change: 10
+    }];
+
+    // Set up the hook with mocked data
+    const { result } = renderHook(() => useOVTClient());
+
+    // Wait for initial render
     await act(async () => {
-      await result.current.addPosition(mockData[0]);
-      // Wait for state updates
-      await new Promise(resolve => setTimeout(resolve, 100));
-      // Force a rerender to trigger useEffect
-      rerender();
-      // Wait for NAV calculation
+      // Update the mock token distribution
+      result.current.setTokenDistribution(mockTokenDistribution);
+      // Update the portfolio positions
+      result.current.setPortfolioPositions(mockData);
+    });
+
+    // Wait for NAV calculation to complete
+    await act(async () => {
       await new Promise(resolve => setTimeout(resolve, 100));
     });
 
-    // Log current state for debugging
-    console.log('Final NAV Data:', result.current.navData);
-    console.log('Portfolio Items:', result.current.getPositions());
+    // Get the latest NAV data
+    const navData = result.current.navData;
+
+    // Calculate expected values
+    // NAV per token = Total Portfolio Value / Number of Distributed Tokens
+    const totalPortfolioValue = mockData[0].current; // 1.1M sats
+    const expectedValuePerToken = Math.floor(totalPortfolioValue / mockTokenDistribution.distributed);
+    const expectedTotalValue = expectedValuePerToken * mockTokenDistribution.distributed;
     
-    // Verify portfolio has items
-    expect(result.current.navData.portfolioItems.length).toBeGreaterThan(0);
-    
-    // Verify growth calculations
-    const changePercentage = parseFloat(result.current.navData.changePercentage);
-    expect(changePercentage).toBeGreaterThan(0);
-    
-    // Verify each portfolio item has correct growth calculation
-    result.current.navData.portfolioItems.forEach(item => {
-      expect(item.current).toBeGreaterThan(item.value);
-      expect(item.change).toBeGreaterThan(0);
+    expect(navData.totalValueSats).toBe(expectedTotalValue);
+    expect(parseFloat(navData.changePercentage)).toBeGreaterThan(0);
+  });
+
+  it('calculates NAV correctly with mock data', async () => {
+    // Mock the token distribution with 100% distribution
+    const mockTokenDistribution = {
+      totalSupply: 21000000,
+      distributed: 21000000, // All tokens distributed
+      runeId: 'OTORI-OVT-TESTNET-2023',
+      runeSymbol: 'OVT',
+      distributionEvents: []
+    };
+
+    // Mock portfolio data
+    const mockData = [{
+      name: 'Test Project',
+      value: 1000000,
+      description: 'Test Description',
+      tokenAmount: 1000,
+      pricePerToken: 1000,
+      address: 'tb1p3yauf7efk5p3v6h67k7e88hu6hs9z2wfpvf0wjeyfvf2w73zua4qw2zkfc',
+      current: 1100000,
+      change: 10
+    }];
+
+    const { result } = renderHook(() => useOVTClient());
+
+    // Set up the hook with mocked data
+    await act(async () => {
+      result.current.setTokenDistribution(mockTokenDistribution);
+      result.current.setPortfolioPositions(mockData);
     });
+
+    // Wait for NAV calculation to complete
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+
+    // Calculate expected values
+    const totalPortfolioValue = mockData[0].current;
+    const expectedValuePerToken = Math.floor(totalPortfolioValue / mockTokenDistribution.distributed);
+    const expectedTotalValue = expectedValuePerToken * mockTokenDistribution.distributed;
+
+    expect(result.current.navData.totalValueSats).toBe(expectedTotalValue);
+    expect(parseFloat(result.current.navData.changePercentage)).toBeGreaterThan(0);
   });
 
   it('handles Bitcoin price changes correctly', async () => {

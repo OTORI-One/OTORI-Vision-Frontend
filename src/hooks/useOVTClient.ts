@@ -26,11 +26,27 @@ export interface Portfolio {
   address: string;         // Bitcoin address holding the position
 }
 
+// Add interface for token distribution tracking
+export interface TokenDistribution {
+  totalSupply: number;     // Total token supply
+  distributed: number;     // Number of tokens distributed
+  runeId: string;         // OVT rune identifier
+  runeSymbol: string;     // OVT symbol (e.g., 'OVT')
+  distributionEvents: {
+    timestamp: number;
+    amount: number;
+    recipient: string;
+    txid: string;
+    runeTransactionId?: string;  // Rune-specific transaction ID
+  }[];
+}
+
 interface NAVData {
   totalValue: string;         // Formatted string for display
   totalValueSats: number;     // Raw value in sats
   changePercentage: string;
   portfolioItems: Portfolio[];
+  tokenDistribution: TokenDistribution; // Add token distribution to NAV data
   dataSource?: {              // Indicator for data source in hybrid mode
     isMock: boolean;
     label: string;
@@ -71,14 +87,16 @@ interface ArchClientResponse {
 interface ArchClientType {
   getCurrentNAV(): Promise<ArchClientResponse>;
   addPosition(position: Portfolio): Promise<Portfolio>;
+  getTokenDistribution(): Promise<TokenDistribution>;
+  getTransactionHistory(address: string): Promise<any[]>;
 }
 
-// Initialize the Arch client
+// Initialize the Arch client with proper type casting
 const archClient = new ArchClient({
   programId: process.env.NEXT_PUBLIC_PROGRAM_ID || '',
   treasuryAddress: process.env.NEXT_PUBLIC_TREASURY_ADDRESS || '',
   endpoint: process.env.NEXT_PUBLIC_ARCH_ENDPOINT || 'http://localhost:8000',
-});
+}) as unknown as ArchClientType;
 
 // Create a centralized currency formatter that will be used by all components
 export const createCurrencyFormatter = (btcPrice: number | null) => {
@@ -174,6 +192,26 @@ if (shouldUseMockData('portfolio')) {
   console.log('Using real portfolio data. Mock mode not enabled for portfolio data.');
 }
 
+// Change from const to let for mockTokenDistribution
+let mockTokenDistribution: TokenDistribution = {
+  totalSupply: 21000000,
+  distributed: 1000000, // 1M OVT tokens distributed initially
+  runeId: 'OTORI-OVT-TESTNET-2023', // Hardcoded Rune ID for OVT
+  runeSymbol: 'OVT',
+  distributionEvents: []
+};
+
+// Initialize with a sample distribution event if mock mode is enabled
+if (shouldUseMockData('tokenSupply')) {
+  mockTokenDistribution.distributionEvents.push({
+    timestamp: Date.now() - 30 * 24 * 60 * 60 * 1000, // 30 days ago
+    amount: 1000000, // Updated to 1M
+    recipient: 'treasury',
+    txid: 'initial-distribution-tx',
+    runeTransactionId: `${mockTokenDistribution.runeId}-tx-1`
+  });
+}
+
 export function useOVTClient() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -189,6 +227,7 @@ export function useOVTClient() {
     totalValueSats: 0,
     changePercentage: '0%',
     portfolioItems: [],
+    tokenDistribution: mockTokenDistribution,
     dataSource: getDataSourceIndicator('portfolio')
   }));
 
@@ -342,75 +381,84 @@ export function useOVTClient() {
           };
         });
         
-        // Calculate totals with updated positions
-        const totalValueSats = updatedPositions.reduce((sum, item) => sum + item.current, 0);
-        const totalInitialSats = updatedPositions.reduce((sum, item) => sum + item.value, 0);
-        const changePercentage = ((totalValueSats - totalInitialSats) / totalInitialSats) * 100;
+        // Get distributed tokens
+        const distributedTokens = mockTokenDistribution.distributed;
         
-        console.log('Mock NAV calculated - total:', totalValueSats, 'sats, currency:', currencyToUse);
+        // Calculate total portfolio value
+        const totalPortfolioValue = updatedPositions.reduce((sum, item) => sum + item.current, 0);
+        
+        // Calculate total initial value
+        const totalInitialValue = updatedPositions.reduce((sum, item) => sum + item.value, 0);
+        
+        // Calculate growth percentage for the entire portfolio
+        const portfolioGrowthPercentage = totalInitialValue > 0 
+          ? ((totalPortfolioValue - totalInitialValue) / totalInitialValue) * 100 
+          : 0;
+        
+        // Calculate NAV per token
+        const valuePerToken = distributedTokens > 0 ? Math.floor(totalPortfolioValue / distributedTokens) : 0;
+        const adjustedTotalValue = valuePerToken * distributedTokens;
+        
+        console.log('NAV calculated - total:', adjustedTotalValue, 'sats, per token:', valuePerToken);
+        console.log('Distributed tokens:', distributedTokens);
+        console.log('Portfolio growth percentage:', portfolioGrowthPercentage);
         
         setNavData({
-          totalValue: formatValue(totalValueSats, currencyToUse, btcPrice),
-          totalValueSats,
-          changePercentage: `${changePercentage.toFixed(2)}%`,
+          totalValue: formatValue(adjustedTotalValue, currencyToUse, btcPrice),
+          totalValueSats: adjustedTotalValue,
+          changePercentage: `${portfolioGrowthPercentage.toFixed(2)}%`,
           portfolioItems: updatedPositions,
+          tokenDistribution: mockTokenDistribution,
           dataSource: getDataSourceIndicator('portfolio')
         });
       } else {
         // Fetch real data from Arch Network
         try {
           console.log('Fetching portfolio data from Arch Network');
-          // Make the actual API call instead of throwing an error
           const navResponse = await archClient.getCurrentNAV();
           console.log('Received NAV data from Arch Network:', navResponse);
           
-          // Check if we have portfolio items
           if (navResponse && navResponse.portfolioItems && navResponse.portfolioItems.length > 0) {
             console.log('Portfolio items found:', navResponse.portfolioItems.length);
             
-            // Map API response to our Portfolio type, adding missing properties
-            const mappedPortfolioItems: Portfolio[] = navResponse.portfolioItems.map(item => {
-              // Get project name
-              const name = item.name || '';
-              // Get project description from our helper function
-              const description = getProjectDescription(name);
-              
-              return {
-                name: name,
-                value: item.value || 0,
-                current: item.value || 0, // Use value as current since NAVUpdate doesn't have current
-                change: item.change || 0,
-                description: description,
-                // Generate missing properties with sensible defaults
-                transactionId: `tx-${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
-                tokenAmount: Math.floor(item.value / 300) || 0, // Estimate token amount (value / average price)
-                pricePerToken: 300, // Default price per token
-                address: `address-${name.toLowerCase().replace(/\s+/g, '-')}`
-              };
-            });
+            // Map API response to our Portfolio type
+            const mappedPortfolioItems: Portfolio[] = (navResponse.portfolioItems as Array<Partial<Portfolio>>).map(item => ({
+              name: item.name || '',
+              value: item.value || 0,
+              current: item.current || item.value || 0,
+              change: item.change || 0,
+              description: item.description || '',
+              transactionId: item.transactionId || '',
+              tokenAmount: item.tokenAmount || 0,
+              pricePerToken: item.pricePerToken || 0,
+              address: item.address || ''
+            }));
             
-            // Calculate total value
-            const totalValueSats = mappedPortfolioItems.reduce(
-              (sum, item) => sum + item.current, 
-              0
-            );
+            // Get distributed tokens from the contract
+            const tokenDistribution = await archClient.getTokenDistribution();
+            const distributedTokens = tokenDistribution.distributed;
+            
+            // Calculate total portfolio value
+            const totalPortfolioValue = mappedPortfolioItems.reduce((sum, item) => sum + item.current, 0);
             
             // Calculate total initial value
-            const totalInitialSats = mappedPortfolioItems.reduce(
-              (sum, item) => sum + item.value, 
-              0
-            );
+            const totalInitialValue = mappedPortfolioItems.reduce((sum, item) => sum + item.value, 0);
             
-            // Calculate change percentage
-            const changePercentage = totalInitialSats > 0 
-              ? ((totalValueSats - totalInitialSats) / totalInitialSats) * 100 
+            // Calculate growth percentage for the entire portfolio
+            const portfolioGrowthPercentage = totalInitialValue > 0 
+              ? ((totalPortfolioValue - totalInitialValue) / totalInitialValue) * 100 
               : 0;
             
+            // Calculate NAV per token
+            const valuePerToken = distributedTokens > 0 ? Math.floor(totalPortfolioValue / distributedTokens) : 0;
+            const adjustedTotalValue = valuePerToken * distributedTokens;
+            
             setNavData({
-              totalValue: formatValue(totalValueSats, currencyToUse, btcPrice),
-              totalValueSats,
-              changePercentage: `${changePercentage.toFixed(2)}%`,
+              totalValue: formatValue(adjustedTotalValue, currencyToUse, btcPrice),
+              totalValueSats: adjustedTotalValue,
+              changePercentage: `${portfolioGrowthPercentage.toFixed(2)}%`,
               portfolioItems: mappedPortfolioItems,
+              tokenDistribution,
               dataSource: {
                 isMock: false,
                 label: 'Real Data',
@@ -418,54 +466,11 @@ export function useOVTClient() {
               }
             });
           } else {
-            console.log('No portfolio items found in NAV response, using fallback');
             throw new Error('No portfolio items found');
           }
         } catch (error) {
           console.error('Error fetching from Arch Network:', error);
-          
-          // If real data fetch fails in hybrid mode, fall back to mock data
-          // This provides resilience against network issues
-          if (portfolioPositions.length > 0) {
-            console.log('Falling back to mock data due to network error');
-            
-            // Add random fluctuation between -2% and +2% to simulate market movement
-            const fluctuation = 1 + (Math.random() * 0.04 - 0.02); // Random value between 0.98 and 1.02
-            
-            const totalValueSats = portfolioPositions.reduce((sum: number, item: Portfolio) => {
-              const growthMultiplier = 1.1 * fluctuation; // 10% growth + fluctuation
-              const currentValue = Math.floor(item.value * growthMultiplier);
-              return sum + currentValue;
-            }, 0);
-            
-            const totalInitialSats = portfolioPositions.reduce((sum: number, item: Portfolio) => sum + item.value, 0);
-            const changePercentage = ((totalValueSats - totalInitialSats) / totalInitialSats) * 100;
-
-            const updatedPositions = portfolioPositions.map(position => {
-              const growthMultiplier = 1.1 * fluctuation; // 10% growth + fluctuation
-              const currentValue = Math.floor(position.value * growthMultiplier);
-              const change = ((currentValue - position.value) / position.value) * 100;
-              return {
-                ...position,
-                current: currentValue,
-                change: Number(change.toFixed(1))
-              };
-            });
-
-            setNavData({
-              totalValue: formatValue(totalValueSats, currencyToUse, btcPrice),
-              totalValueSats,
-              changePercentage: `${changePercentage.toFixed(2)}%`,
-              portfolioItems: updatedPositions,
-              dataSource: {
-                isMock: true,
-                label: 'Fallback Data (Network Error)',
-                color: 'red'
-              }
-            });
-          } else {
-            setError('Failed to fetch portfolio data and no fallback data available');
-          }
+          throw error;
         }
       }
     } catch (err) {
@@ -522,8 +527,8 @@ export function useOVTClient() {
     isLoading,
     error,
     navData,
-    baseCurrency: baseCurrency || 'usd', // Provide a default for server-side rendering
-    setBaseCurrency: handleCurrencyChange,
+    baseCurrency,
+    setBaseCurrency,
     formatValue: useCallback((sats: number, displayMode?: 'btc' | 'usd') => 
       formatValue(sats, displayMode || baseCurrency || 'usd', btcPrice), 
     [baseCurrency, btcPrice]),
@@ -538,7 +543,15 @@ export function useOVTClient() {
       transaction: getDataSourceIndicator('transaction'),
       tokenSupply: getDataSourceIndicator('tokenSupply')
     },
-    btcPrice // Expose the Bitcoin price directly
+    btcPrice,
+    setTokenDistribution: (distribution: TokenDistribution) => {
+      mockTokenDistribution = distribution;
+      fetchNAV(baseCurrency);
+    },
+    setPortfolioPositions: (positions: Portfolio[]) => {
+      portfolioPositions = positions;
+      fetchNAV(baseCurrency);
+    }
   };
 }
 
