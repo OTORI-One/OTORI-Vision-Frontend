@@ -11,7 +11,7 @@ declare module '@omnisat/lasereyes' {
 
 export interface ArchTransaction {
   txid: string;
-  type: 'MINT' | 'BURN' | 'TRANSFER' | 'POSITION_ENTRY' | 'POSITION_EXIT';
+  type: 'MINT' | 'BURN' | 'TRANSFER' | 'POSITION_ENTRY' | 'POSITION_EXIT' | 'BUY' | 'SELL';
   amount: number;
   confirmations: number;
   timestamp: number;
@@ -20,6 +20,11 @@ export interface ArchTransaction {
     position?: string;
     signatures?: string[];
     currency?: string;
+    price?: number;
+    status?: 'pending' | 'confirmed' | 'failed';
+    orderType?: 'market' | 'limit';
+    limitPrice?: number;
+    filledAt?: number;
   };
 }
 
@@ -31,6 +36,17 @@ export interface NAVUpdate {
     value: number;
     change: number;
   }[];
+}
+
+export interface Portfolio {
+  name: string;
+  value: number;
+  current: number;
+  change: number;
+  description: string;
+  tokenAmount: number;
+  pricePerToken: number;
+  address: string;
 }
 
 export class ArchClient {
@@ -224,6 +240,167 @@ export class ArchClient {
       };
     } catch (error) {
       console.error(`Position creation failed for ${position.name}:`, error);
+      throw error;
+    }
+  }
+
+  async getMarketPrice(): Promise<number> {
+    try {
+      const response = await fetch(`${this.endpoint}/market_price`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch market price');
+      }
+
+      const data = await response.json();
+      return data.price;
+    } catch (error) {
+      console.error('Failed to fetch market price:', error);
+      throw error;
+    }
+  }
+
+  async estimatePriceImpact(amount: number, isBuy: boolean): Promise<number> {
+    try {
+      const response = await fetch(`${this.endpoint}/estimate_impact`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount,
+          side: isBuy ? 'buy' : 'sell'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to estimate price impact');
+      }
+
+      const data = await response.json();
+      return data.estimatedPrice;
+    } catch (error) {
+      console.error('Failed to estimate price impact:', error);
+      throw error;
+    }
+  }
+
+  async getOrderBook(): Promise<{ bids: { price: number; amount: number }[]; asks: { price: number; amount: number }[] }> {
+    try {
+      const response = await fetch(`${this.endpoint}/order_book`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch order book');
+      }
+
+      const data = await response.json();
+      return {
+        bids: data.bids,
+        asks: data.asks
+      };
+    } catch (error) {
+      console.error('Failed to fetch order book:', error);
+      throw error;
+    }
+  }
+
+  async executeTrade(params: {
+    type: 'buy' | 'sell';
+    amount: number;
+    executionPrice: number;
+    maxPrice?: number;
+    minPrice?: number;
+  }): Promise<ArchTransaction> {
+    try {
+      const response = await fetch(`${this.endpoint}/execute_trade`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...params,
+          program_id: this.programId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to execute trade');
+      }
+
+      const data = await response.json();
+      return {
+        txid: data.txid,
+        type: params.type.toUpperCase() as 'BUY' | 'SELL',
+        amount: params.amount,
+        confirmations: 0,
+        timestamp: Date.now(),
+        metadata: {
+          price: params.executionPrice,
+          status: 'pending',
+          orderType: params.maxPrice || params.minPrice ? 'limit' : 'market',
+          limitPrice: params.maxPrice || params.minPrice,
+          filledAt: params.executionPrice
+        }
+      };
+    } catch (error) {
+      console.error('Failed to execute trade:', error);
+      throw error;
+    }
+  }
+
+  async getPositions(): Promise<Portfolio[]> {
+    try {
+      // First try to get positions from the API
+      const response = await fetch(`${this.endpoint}/positions`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch positions');
+      }
+
+      const positions = await response.json();
+      return positions;
+    } catch (error) {
+      console.error('Error fetching positions:', error);
+      // Return mock data in development
+      if (process.env.NODE_ENV === 'development') {
+        return [
+          {
+            name: 'Mock Position 1',
+            value: 1000000, // 1M sats
+            current: 1100000,
+            change: 10,
+            description: 'Mock position for development',
+            tokenAmount: 100,
+            pricePerToken: 10000,
+            address: 'mock-address-1'
+          },
+          {
+            name: 'Mock Position 2',
+            value: 2000000,
+            current: 2400000,
+            change: 20,
+            description: 'Another mock position',
+            tokenAmount: 200,
+            pricePerToken: 10000,
+            address: 'mock-address-2'
+          }
+        ];
+      }
       throw error;
     }
   }

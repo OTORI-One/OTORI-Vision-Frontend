@@ -228,7 +228,12 @@ export default function TradingInterface() {
   
   // Format price according to selected currency
   const formatCurrencyValue = (satValue: number) => {
-    console.log(`TradingInterface formatting ${satValue} sats with currency: ${baseCurrency}`);
+    console.log(`TradingInterface formatting ${satValue} sats with currency: ${baseCurrency}, btcPrice: ${btcPrice}`);
+    
+    if (satValue === 0 || isNaN(satValue)) {
+      return baseCurrency === 'usd' ? '$0.00' : '0 sats';
+    }
+    
     // Use the shared formatValue function to maintain consistency
     return formatValue(satValue);
   };

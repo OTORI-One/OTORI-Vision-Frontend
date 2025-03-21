@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback, memo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import TokenExplorerModal from './TokenExplorerModal';
 import { useOVTClient } from '../src/hooks/useOVTClient';
@@ -24,10 +24,10 @@ interface NAVVisualizationProps {
 }
 
 // Use the centralized formatter from useOVTClient instead of this local one
-export default function NAVVisualization({ data, totalValue, changePercentage, baseCurrency = 'usd' }: NAVVisualizationProps) {
+function NAVVisualization({ data, totalValue, changePercentage, baseCurrency = 'usd' }: NAVVisualizationProps) {
   const [selectedToken, setSelectedToken] = useState<Portfolio | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { formatValue, currencyFormatter } = useOVTClient();
+  const { formatValue } = useOVTClient();
   const { price: btcPrice } = useBitcoinPrice();
   
   // Log when currency changes to help with debugging
@@ -49,6 +49,7 @@ export default function NAVVisualization({ data, totalValue, changePercentage, b
     };
   }, []);
 
+  // Memoize formatted data to prevent unnecessary recalculations
   const formattedData = useMemo(() => {
     if (!data || data.length === 0) return [];
     
@@ -66,20 +67,19 @@ export default function NAVVisualization({ data, totalValue, changePercentage, b
     }));
   }, [data]);
 
-  // Format Y axis values
-  const formatYAxis = (value: number) => {
-    console.log('Formatting Y axis value:', value, 'in mode:', baseCurrency);
-    return formatValue(value, baseCurrency);
-  };
+  // Format Y axis values - memoize to prevent unnecessary recalculations
+  const formatYAxis = useCallback((value: number) => {
+    // Only call formatValue, don't log every time to improve performance
+    return formatValue(value);
+  }, [formatValue]);
 
   // Handle bar click to show token details
-  const handleClick = (data: any, index: number) => {
-    console.log('Bar clicked:', data);
+  const handleClick = useCallback((data: any, index: number) => {
     if (data && data.payload) {
       setSelectedToken(data.payload);
       setIsModalOpen(true);
     }
-  };
+  }, []);
 
   return (
     <div className="h-full">
@@ -98,7 +98,7 @@ export default function NAVVisualization({ data, totalValue, changePercentage, b
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis tickFormatter={formatYAxis} />
-              <Tooltip content={(props) => <CustomTooltip {...props} currency={baseCurrency} btcPrice={btcPrice} />} />
+              <Tooltip content={(props) => <MemoizedCustomTooltip {...props} baseCurrency={baseCurrency} />} />
               <Bar 
                 dataKey="value" 
                 name="Initial Investment" 
@@ -124,7 +124,7 @@ export default function NAVVisualization({ data, totalValue, changePercentage, b
               onClose={() => setIsModalOpen(false)}
               tokenData={{
                 name: selectedToken.name,
-                description: selectedToken.description,
+                description: selectedToken.description || '',
                 initial: selectedToken.value,
                 current: selectedToken.current,
                 change: selectedToken.change,
@@ -142,16 +142,18 @@ export default function NAVVisualization({ data, totalValue, changePercentage, b
   );
 }
 
+// Export memoized component to prevent unnecessary re-renders
+export default memo(NAVVisualization);
+
 // Keep the CustomTooltip component but update it to use the centralized formatter
 interface CustomTooltipProps {
   active?: boolean;
   payload?: any[];
   label?: string;
-  currency: 'usd' | 'btc';
-  btcPrice: number | null;
+  baseCurrency: 'usd' | 'btc';
 }
 
-const CustomTooltip = ({ active, payload, label, currency, btcPrice }: CustomTooltipProps) => {
+const CustomTooltip = ({ active, payload, label, baseCurrency }: CustomTooltipProps) => {
   const { formatValue } = useOVTClient();
   
   if (active && payload && payload.length) {
@@ -164,14 +166,14 @@ const CustomTooltip = ({ active, payload, label, currency, btcPrice }: CustomToo
       <div className="bg-white p-4 rounded shadow-lg border border-gray-200">
         <p className="font-medium text-gray-900">{label}</p>
         <p className="text-sm text-gray-600 mt-2">
-          Total: {formatValue(totalValue, currency)}
+          Total: {formatValue(totalValue)}
         </p>
         <p className="text-sm text-gray-600">
-          Initial: {formatValue(initialValue, currency)}
+          Initial: {formatValue(initialValue)}
         </p>
         <p className={`text-sm ${growthValue >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-          Growth: {formatValue(growthValue, currency)} 
-          ({changePercent.toFixed(1)}%)
+          Growth: {formatValue(growthValue)} 
+          <span className="ml-1">({changePercent.toFixed(1)}%)</span>
         </p>
       </div>
     );
@@ -179,6 +181,9 @@ const CustomTooltip = ({ active, payload, label, currency, btcPrice }: CustomToo
   
   return null;
 };
+
+// Memoize the CustomTooltip component to prevent unnecessary re-renders
+const MemoizedCustomTooltip = memo(CustomTooltip);
 
 const formatDate = (date: Date): string => {
   return date.toLocaleDateString('en-US', {

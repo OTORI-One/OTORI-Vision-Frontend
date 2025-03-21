@@ -9,6 +9,7 @@ import { isAdminWallet, ADMIN_WALLETS } from '../../src/utils/adminUtils';
 import { useLaserEyes, XVERSE, UNISAT } from '@omnisat/lasereyes';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
+import { getDataSourceIndicator } from '../../src/lib/hybridModeUtils';
 
 enum AdminView {
   POSITIONS = 'positions',
@@ -26,6 +27,9 @@ export default function AdminDashboard() {
   const [isLocalLoading, setIsLocalLoading] = useState(true);
   const { isLoading, error, navData, formatValue } = useOVTClient();
   const { address, connect, disconnect, network } = useLaserEyes();
+
+  // Get data source indicator for portfolio
+  const portfolioDataSource = getDataSourceIndicator('portfolio');
 
   const addDebugLog = (message: string) => {
     console.log('[AdminDashboard]', message);
@@ -274,7 +278,7 @@ export default function AdminDashboard() {
                 <div className="bg-white p-4 rounded-lg shadow-sm">
                   <p className="text-sm text-gray-500">Data Source</p>
                   <p className="text-xl font-bold">
-                    {navData?.dataSource?.isMock ? "Simulated Data" : "Real Contract Data"}
+                    {portfolioDataSource.isMock ? "Simulated Data" : "Real Contract Data"}
                   </p>
                 </div>
               </div>

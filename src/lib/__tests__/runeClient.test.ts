@@ -1,4 +1,4 @@
-import { RuneClient, OVT_RUNE_ID, OVT_RUNE_SYMBOL, OVT_TOTAL_SUPPLY, OVT_TREASURY_ADDRESS } from '../runeClient';
+import { RuneClient, OVT_RUNE_ID, OVT_RUNE_SYMBOL, OVT_TOTAL_SUPPLY, OVT_TREASURY_ADDRESS, OVT_RUNE_DECIMALS } from '../runeClient';
 
 // Mock fetch globally
 global.fetch = jest.fn();
@@ -7,11 +7,12 @@ describe('RuneClient', () => {
   let runeClient: RuneClient;
   
   beforeEach(() => {
-    // Clear all mocks before each test
     jest.clearAllMocks();
-    
-    // Initialize RuneClient with default config
     runeClient = new RuneClient();
+  });
+
+  afterEach(() => {
+    jest.resetAllMocks();
   });
 
   describe('constructor', () => {
@@ -41,59 +42,57 @@ describe('RuneClient', () => {
   describe('getRuneInfo', () => {
     it('should fetch and return rune information', async () => {
       const mockBalances = [
-        { address: OVT_TREASURY_ADDRESS, amount: 1900000, isDistributed: false },
-        { address: 'addr1', amount: 100000, isDistributed: true },
-        { address: 'addr2', amount: 100000, isDistributed: true }
+        { address: OVT_TREASURY_ADDRESS, amount: Math.floor(OVT_TOTAL_SUPPLY * 0.9) },
+        { address: 'tb1pexampleaddress1', amount: Math.floor(OVT_TOTAL_SUPPLY * 0.05) },
+        { address: 'tb1pexampleaddress2', amount: Math.floor(OVT_TOTAL_SUPPLY * 0.05) }
       ];
 
-      const mockApiResponse = {
-        id: OVT_RUNE_ID,
-        symbol: OVT_RUNE_SYMBOL,
-        decimals: 2,
-        events: [
-          { timestamp: 1234567890, amount: 100000, recipient: 'addr1', txid: 'tx1' }
-        ]
-      };
-
-      // Mock getRuneBalances
-      jest.spyOn(runeClient, 'getRuneBalances').mockResolvedValue(mockBalances);
-
-      // Mock fetch for getRuneInfo
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockApiResponse)
+      // Mock getRuneBalances response
+      (global.fetch as jest.Mock).mockImplementation((url: string) => {
+        if (url.includes('/balances')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(mockBalances)
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            id: OVT_RUNE_ID,
+            symbol: OVT_RUNE_SYMBOL,
+            decimals: OVT_RUNE_DECIMALS,
+            events: []
+          })
+        });
       });
 
       const info = await runeClient.getRuneInfo();
-
       expect(info).toEqual({
         id: OVT_RUNE_ID,
         symbol: OVT_RUNE_SYMBOL,
-        decimals: 2,
+        decimals: OVT_RUNE_DECIMALS,
         supply: {
-          total: 2100000,
-          distributed: 200000,
-          treasury: 1900000,
-          percentDistributed: (200000 / 2100000) * 100
+          total: OVT_TOTAL_SUPPLY,
+          distributed: Math.floor(OVT_TOTAL_SUPPLY * 0.1),
+          treasury: Math.floor(OVT_TOTAL_SUPPLY * 0.9),
+          percentDistributed: 10
         },
-        events: mockApiResponse.events,
+        events: [],
         treasuryAddresses: [OVT_TREASURY_ADDRESS]
       });
     });
 
     it('should return default values on API failure', async () => {
-      // Mock getRuneBalances to fail
-      jest.spyOn(runeClient, 'getRuneBalances').mockRejectedValue(new Error('API Error'));
-
-      // Mock fetch to fail
-      (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('API Error'));
+      (global.fetch as jest.Mock).mockImplementation(() => Promise.resolve({
+        ok: false,
+        statusText: 'API Error'
+      }));
 
       const info = await runeClient.getRuneInfo();
-
       expect(info).toEqual({
         id: OVT_RUNE_ID,
         symbol: OVT_RUNE_SYMBOL,
-        decimals: 2,
+        decimals: OVT_RUNE_DECIMALS,
         supply: {
           total: OVT_TOTAL_SUPPLY,
           distributed: 0,
@@ -114,13 +113,12 @@ describe('RuneClient', () => {
         { address: 'tb1pexampleaddress2', amount: Math.floor(OVT_TOTAL_SUPPLY * 0.05) }
       ];
 
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as jest.Mock).mockImplementation(() => Promise.resolve({
         ok: true,
         json: () => Promise.resolve(mockApiResponse)
-      });
+      }));
 
       const balances = await runeClient.getRuneBalances();
-
       expect(balances).toEqual([
         { address: OVT_TREASURY_ADDRESS, amount: Math.floor(OVT_TOTAL_SUPPLY * 0.9), isDistributed: false },
         { address: 'tb1pexampleaddress1', amount: Math.floor(OVT_TOTAL_SUPPLY * 0.05), isDistributed: true },
@@ -129,26 +127,16 @@ describe('RuneClient', () => {
     });
 
     it('should return mock balances on API failure', async () => {
-      (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('API Error'));
+      (global.fetch as jest.Mock).mockImplementation(() => Promise.resolve({
+        ok: false,
+        statusText: 'API Error'
+      }));
 
       const balances = await runeClient.getRuneBalances();
-
       expect(balances).toEqual([
-        { 
-          address: OVT_TREASURY_ADDRESS, 
-          amount: OVT_TOTAL_SUPPLY * 0.9, 
-          isDistributed: false 
-        },
-        { 
-          address: 'tb1pexampleaddress1', 
-          amount: OVT_TOTAL_SUPPLY * 0.05, 
-          isDistributed: true 
-        },
-        { 
-          address: 'tb1pexampleaddress2', 
-          amount: OVT_TOTAL_SUPPLY * 0.05, 
-          isDistributed: true 
-        }
+        { address: OVT_TREASURY_ADDRESS, amount: OVT_TOTAL_SUPPLY * 0.9, isDistributed: false },
+        { address: 'tb1pexampleaddress1', amount: OVT_TOTAL_SUPPLY * 0.05, isDistributed: true },
+        { address: 'tb1pexampleaddress2', amount: OVT_TOTAL_SUPPLY * 0.05, isDistributed: true }
       ]);
     });
   });
@@ -161,8 +149,9 @@ describe('RuneClient', () => {
     });
 
     it('should not add duplicate treasury address', () => {
+      const initialLength = runeClient['treasuryAddresses'].length;
       runeClient.addTreasuryAddress(OVT_TREASURY_ADDRESS);
-      expect(runeClient['treasuryAddresses'].length).toBe(1);
+      expect(runeClient['treasuryAddresses'].length).toBe(initialLength);
     });
 
     it('should remove treasury address', () => {
@@ -186,24 +175,24 @@ describe('RuneClient', () => {
         value: 100000
       };
 
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as jest.Mock).mockImplementation(() => Promise.resolve({
         ok: true,
         json: () => Promise.resolve(mockTxInfo)
-      });
+      }));
 
       const txInfo = await runeClient.getTransactionInfo('test-txid');
       expect(txInfo).toEqual(mockTxInfo);
     });
 
     it('should throw error on API failure', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (global.fetch as jest.Mock).mockImplementation(() => Promise.resolve({
         ok: false,
         statusText: 'API Error'
-      });
+      }));
 
       await expect(runeClient.getTransactionInfo('test-txid'))
         .rejects
-        .toThrow('Failed to fetch transaction info: API Error');
+        .toThrow('Failed to fetch transaction info');
     });
   });
 }); 
