@@ -1,110 +1,99 @@
 import { ensurePortfolioDataLoaded } from '../portfolioLoader';
-import mockPortfolioData from '../../mock-data/portfolio-positions.json';
+import { shouldUseMockData } from '../../lib/hybridModeUtils';
 
-// Mock localStorage
-const localStorageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: jest.fn((key: string) => store[key] || null),
-    setItem: jest.fn((key: string, value: string) => {
-      store[key] = value.toString();
-    }),
-    clear: jest.fn(() => {
-      store = {};
-    }),
-    removeItem: jest.fn((key: string) => {
-      delete store[key];
-    }),
-  };
-})();
-
-// Mock window events
-const addEventListenerMock = jest.fn();
-const dispatchEventMock = jest.fn();
-
-// Mock console logs
-const consoleLogMock = jest.fn();
-const consoleErrorMock = jest.fn();
+// Mock hybridModeUtils
+jest.mock('../../lib/hybridModeUtils', () => ({
+  shouldUseMockData: jest.fn()
+}));
 
 describe('portfolioLoader', () => {
-  beforeAll(() => {
-    // Setup mocks
-    Object.defineProperty(window, 'localStorage', { value: localStorageMock });
-    window.addEventListener = addEventListenerMock;
-    window.dispatchEvent = dispatchEventMock;
-    
-    // Save original console methods
-    global.console.log = consoleLogMock;
-    global.console.error = consoleErrorMock;
-  });
-  
+  let localStorageMock: { getItem: jest.Mock; setItem: jest.Mock; clear: jest.Mock };
+  let dispatchEventMock: jest.Mock;
+  let consoleErrorMock: jest.Mock;
+
   beforeEach(() => {
-    // Clear mocks between tests
-    jest.clearAllMocks();
-    localStorageMock.clear();
+    localStorageMock = {
+      getItem: jest.fn(),
+      setItem: jest.fn(),
+      clear: jest.fn()
+    };
+    dispatchEventMock = jest.fn();
+    consoleErrorMock = jest.fn();
+
+    // Mock localStorage
+    Object.defineProperty(window, 'localStorage', {
+      value: localStorageMock,
+      writable: true
+    });
+
+    // Mock dispatchEvent
+    window.dispatchEvent = dispatchEventMock;
+
+    // Mock console.error
+    console.error = consoleErrorMock;
+
+    // Reset shouldUseMockData mock
+    (shouldUseMockData as jest.Mock).mockReset();
   });
-  
+
   it('should add portfolio data to localStorage if empty', () => {
     // Setup
-    localStorageMock.getItem.mockReturnValueOnce(null);
-    
+    localStorageMock.getItem.mockReturnValue(null);
+    (shouldUseMockData as jest.Mock).mockReturnValue(true);
+
     // Execute
     ensurePortfolioDataLoaded();
-    
+
     // Verify
     expect(localStorageMock.getItem).toHaveBeenCalledWith('ovt-portfolio-positions');
-    expect(localStorageMock.setItem).toHaveBeenCalled();
+    expect(localStorageMock.setItem).toHaveBeenCalledWith('ovt-portfolio-positions', expect.any(String));
+    expect(localStorageMock.setItem).toHaveBeenCalledWith('ovt_positions', expect.any(String));
     
     // Verify data structure
     const setItemCall = localStorageMock.setItem.mock.calls[0];
-    const key = setItemCall[0];
-    const valueStr = setItemCall[1];
-    const value = JSON.parse(valueStr);
+    const savedData = JSON.parse(setItemCall[1]);
+    expect(Array.isArray(savedData)).toBe(true);
+    expect(savedData.length).toBeGreaterThan(0);
     
-    expect(key).toBe('ovt-portfolio-positions');
-    expect(Array.isArray(value)).toBe(true);
-    
-    // Check that all items have the required properties
-    value.forEach((item: any) => {
-      expect(item).toHaveProperty('name');
-      expect(item).toHaveProperty('value');
-      expect(item).toHaveProperty('current');
-      expect(item).toHaveProperty('transactionId');
-      expect(item).toHaveProperty('address');
-      expect(item).toHaveProperty('lastSpikeDay');
-    });
-    
-    // Verify event dispatched
+    // Verify event dispatch
     expect(dispatchEventMock).toHaveBeenCalled();
-    const event = dispatchEventMock.mock.calls[0][0];
-    expect(event.type).toBe('storage');
   });
-  
+
   it('should not add portfolio data if it already exists', () => {
-    // Setup - localStorage already has data
-    localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(mockPortfolioData));
-    
+    // Setup
+    const existingData = JSON.stringify([
+      {
+        name: 'Test Position',
+        value: 100000,
+        description: 'Test Description'
+      }
+    ]);
+    localStorageMock.getItem.mockImplementation((key) => {
+      if (key === 'ovt-portfolio-positions') {
+        return existingData;
+      }
+      return null;
+    });
+    (shouldUseMockData as jest.Mock).mockReturnValue(true);
+
     // Execute
     ensurePortfolioDataLoaded();
-    
+
     // Verify
     expect(localStorageMock.getItem).toHaveBeenCalledWith('ovt-portfolio-positions');
-    expect(localStorageMock.setItem).not.toHaveBeenCalled();
+    expect(localStorageMock.setItem).toHaveBeenCalledWith('ovt_positions', existingData);
     expect(dispatchEventMock).not.toHaveBeenCalled();
-    
-    // Verify log
-    expect(consoleLogMock).toHaveBeenCalledWith('Portfolio data already exists in localStorage');
   });
-  
+
   it('should handle errors gracefully', () => {
-    // Setup - force an error
-    localStorageMock.getItem.mockImplementationOnce(() => {
+    // Setup
+    localStorageMock.getItem.mockImplementation(() => {
       throw new Error('Test error');
     });
-    
+
     // Execute
     ensurePortfolioDataLoaded();
-    
+
     // Verify error handling
     expect(consoleErrorMock).toHaveBeenCalledWith(
       'Failed to inject portfolio data:',

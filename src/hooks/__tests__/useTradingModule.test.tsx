@@ -1,14 +1,16 @@
 import { renderHook, act } from '@testing-library/react-hooks';
 import { useTradingModule } from '../useTradingModule';
+import { OrderType, OrderStatus, Order, OrderBook } from '../../types/trading';
 
-// Mock the hybrid mode utilities
-jest.mock('../../lib/hybridModeUtils', () => ({
-  shouldUseMockData: jest.fn().mockReturnValue(true),
-  getDataSourceIndicator: jest.fn().mockReturnValue({
-    isMock: true,
-    label: 'Test Data',
-    color: 'blue'
-  })
+// Mock @omnisat/lasereyes
+jest.mock('@omnisat/lasereyes', () => ({
+  LaserEyes: {
+    random: jest.fn(() => ({
+      id: 'mock-id',
+      value: 100000,
+      status: 'confirmed'
+    }))
+  }
 }));
 
 // Mock localStorage
@@ -28,6 +30,21 @@ const mockLocalStorage = (() => {
 Object.defineProperty(window, 'localStorage', {
   value: mockLocalStorage
 });
+
+// Mock data
+const mockOrder: Order = {
+  id: 'mock-order-1',
+  type: OrderType.BUY,
+  amount: 1000,
+  price: 100,
+  status: OrderStatus.PENDING,
+  timestamp: Date.now()
+};
+
+const mockOrderBook: OrderBook = {
+  bids: [{ price: 100, amount: 1000 }],
+  asks: [{ price: 101, amount: 1000 }]
+};
 
 describe('useTradingModule Hook', () => {
   beforeEach(() => {
@@ -173,5 +190,25 @@ describe('useTradingModule Hook', () => {
     
     // Loading should be false after operation completes
     expect(result.current.isLoading).toBe(false);
+  });
+
+  it('should place a buy order', async () => {
+    const { result } = renderHook(() => useTradingModule());
+    const order = { ...mockOrder };
+    await result.current.placeOrder(order);
+    expect(result.current.orders).toContainEqual(order);
+  });
+
+  it('should place a sell order', async () => {
+    const { result } = renderHook(() => useTradingModule());
+    const order = { ...mockOrder, type: OrderType.SELL };
+    await result.current.placeOrder(order);
+    expect(result.current.orders).toContainEqual(order);
+  });
+
+  it('should update order book', () => {
+    const { result } = renderHook(() => useTradingModule());
+    result.current.updateOrderBook(mockOrderBook);
+    expect(result.current.orderBook).toEqual(mockOrderBook);
   });
 }); 

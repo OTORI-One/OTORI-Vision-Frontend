@@ -439,3 +439,107 @@ inscriptions:
   - a4676e57277b70171d69dc6ad2781485b491fe0ff5870f6f6b01999e7180b29ei3
   ```
   
+
+# FINAL WORKING COMMANDS for ORD (20th March 2025)
+
+### 1. Basic Commands with Config Flag
+```bash
+# Check wallet balance
+ord --config ~/.ord/ord.yaml --signet wallet balance
+
+# List wallet addresses
+ord --config ~/.ord/ord.yaml --signet wallet addresses
+
+# List inscriptions
+ord --config ~/.ord/ord.yaml --signet wallet inscriptions
+
+# Check specific address
+ord --config ~/.ord/ord.yaml --signet wallet balance --address tb1p3rjwdglnrfgu54lh7mqvsnzhw523u03ahwesjasa2m66krx4sxzs4l2h72
+
+# Send inscription
+ord --config ~/.ord/ord.yaml --signet wallet send --fee-rate 1 [address] [inscription-id]
+```
+
+### 2. More Elegant Solution: Create a Script
+Create a file `ord_wallet.sh`:
+
+```bash
+#!/bin/bash
+
+CONFIG="$HOME/.ord/ord.yaml"
+NETWORK="--signet"
+
+function ord_wallet {
+  ord --config "$CONFIG" $NETWORK wallet "$@"
+}
+
+# Example usage:
+# ./ord_wallet.sh balance
+# ./ord_wallet.sh addresses
+# ./ord_wallet.sh inscriptions
+# ./ord_wallet.sh balance --address tb1p3rjwdglnrfgu54lh7mqvsnzhw523u03ahwesjasa2m66krx4sxzs4l2h72
+
+ord_wallet "$@"
+```
+
+Make it executable:
+```bash
+chmod +x ord_wallet.sh
+```
+
+### 3. Using the Script
+```bash
+# Check balance
+./ord_wallet.sh balance
+
+# List addresses
+./ord_wallet.sh addresses
+
+# List inscriptions
+./ord_wallet.sh inscriptions
+
+# Check specific address
+./ord_wallet.sh balance --address tb1p3rjwdglnrfgu54lh7mqvsnzhw523u03ahwesjasa2m66krx4sxzs4l2h72
+```
+
+### 4. Advanced Script for Multiple Wallets
+Create `check_wallets.sh`:
+
+```bash
+#!/bin/bash
+
+CONFIG="$HOME/.ord/ord.yaml"
+NETWORK="--signet"
+WALLETS=("ovt-LP-wallet" "ord" "ovt_ord_wallet" "ovt_runes_wallet")
+ADDRESS="tb1p3rjwdglnrfgu54lh7mqvsnzhw523u03ahwesjasa2m66krx4sxzs4l2h72"
+
+for wallet in "${WALLETS[@]}"; do
+  echo "Checking wallet: $wallet"
+  bitcoin-cli -signet loadwallet "$wallet" > /dev/null
+  ord --config "$CONFIG" $NETWORK --bitcoin-rpc-wallet "$wallet" wallet addresses | grep -q "$ADDRESS"
+  if [ $? -eq 0 ]; then
+    echo "Address found in wallet: $wallet"
+    exit 0
+  fi
+done
+
+echo "Address not found in any wallet"
+exit 1
+```
+
+### 5. Using the Advanced Script
+```bash
+# Make executable
+chmod +x check_wallets.sh
+
+# Run the check
+./check_wallets.sh
+```
+
+### Key Benefits
+1. **Consistency**: All commands use the same configuration
+2. **Reusability**: Scripts can be used across different projects
+3. **Error Handling**: Better control over error messages and exit codes
+4. **Maintainability**: Easier to update configuration in one place
+
+Let me know if you'd like any modifications to these scripts!
