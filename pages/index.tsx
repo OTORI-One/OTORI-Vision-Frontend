@@ -70,7 +70,10 @@ export default function Dashboard() {
   }, [navData]);
 
   // Use the NAV value directly from navData
-  const formattedNAV = navData.totalValue;
+  const formattedNAV = useMemo(() => {
+    if (!navData || !navData.totalValue) return "Loading...";
+    return navData.totalValue;
+  }, [navData]);
 
   // Format currency values
   const formatCurrency = (value: number) => {
@@ -172,7 +175,7 @@ export default function Dashboard() {
           <div className="bg-white p-4 rounded-lg shadow col-span-1 lg:col-span-8">
             <h2 className="text-lg font-medium text-gray-900">Net Asset Value</h2>
             <div className="flex items-center mt-1">
-              <p className="text-3xl font-bold currency-dependent" data-currency={baseCurrency}>{navData?.totalValue || "Loading..."}</p>
+              <p className="text-3xl font-bold currency-dependent" data-currency={baseCurrency}>{formattedNAV}</p>
               {navData && (
                 <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                   parseFloat(navData.changePercentage) >= 0 

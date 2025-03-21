@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useCallback, memo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import TokenExplorerModal from './TokenExplorerModal';
 import { useOVTClient } from '../src/hooks/useOVTClient';
 import { Portfolio } from '../src/hooks/useOVTClient';
@@ -23,31 +23,15 @@ interface NAVVisualizationProps {
   baseCurrency?: 'usd' | 'btc';
 }
 
-// Use the centralized formatter from useOVTClient instead of this local one
+// Colors for growth bars
+const POSITIVE_GROWTH_COLOR = '#82ca9d'; // Green
+const NEGATIVE_GROWTH_COLOR = '#d32f2f'; // Red
+
+// Use the centralized formatter from useOVTClient
 function NAVVisualization({ data, totalValue, changePercentage, baseCurrency = 'usd' }: NAVVisualizationProps) {
   const [selectedToken, setSelectedToken] = useState<Portfolio | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { formatValue } = useOVTClient();
-  const { price: btcPrice } = useBitcoinPrice();
-  
-  // Log when currency changes to help with debugging
-  useEffect(() => {
-    console.log('NAVVisualization: baseCurrency changed to', baseCurrency);
-  }, [baseCurrency]);
-
-  // Listen for global currency changes
-  useEffect(() => {
-    const handleCurrencyChange = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      console.log('NAVVisualization: Detected currency change event:', customEvent.detail);
-      // The component will re-render because the parent passes the new baseCurrency
-    };
-    
-    window.addEventListener('currency-changed', handleCurrencyChange);
-    return () => {
-      window.removeEventListener('currency-changed', handleCurrencyChange);
-    };
-  }, []);
 
   // Memoize formatted data to prevent unnecessary recalculations
   const formattedData = useMemo(() => {
@@ -111,10 +95,17 @@ function NAVVisualization({ data, totalValue, changePercentage, baseCurrency = '
                 dataKey="growth" 
                 name="Growth" 
                 stackId="a" 
-                fill="#82ca9d" 
                 onClick={handleClick}
                 className="cursor-pointer"
-              />
+              >
+                {/* Apply different colors based on growth value */}
+                {formattedData.map((entry, index) => (
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={entry.growth >= 0 ? POSITIVE_GROWTH_COLOR : NEGATIVE_GROWTH_COLOR} 
+                  />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
           
@@ -130,7 +121,7 @@ function NAVVisualization({ data, totalValue, changePercentage, baseCurrency = '
                 change: selectedToken.change,
                 totalValue: selectedToken.current,
                 holdings: selectedToken.tokenAmount.toString(),
-                address: selectedToken.address,
+                address: selectedToken.address || '',
                 transactions: [getInitialTransaction(selectedToken.tokenAmount, selectedToken.pricePerToken, baseCurrency)]
               }}
               baseCurrency={baseCurrency}
@@ -156,30 +147,38 @@ interface CustomTooltipProps {
 const CustomTooltip = ({ active, payload, label, baseCurrency }: CustomTooltipProps) => {
   const { formatValue } = useOVTClient();
   
-  if (active && payload && payload.length) {
+  // Use useMemo to cache formatted values and prevent re-renders
+  const formattedValues = useMemo(() => {
+    if (!active || !payload || !payload.length) return null;
+    
     const initialValue = payload[0].value;
     const growthValue = payload[1].value;
     const totalValue = initialValue + growthValue;
     const changePercent = initialValue > 0 ? (growthValue / initialValue) * 100 : 0;
     
-    return (
-      <div className="bg-white p-4 rounded shadow-lg border border-gray-200">
-        <p className="font-medium text-gray-900">{label}</p>
-        <p className="text-sm text-gray-600 mt-2">
-          Total: {formatValue(totalValue)}
-        </p>
-        <p className="text-sm text-gray-600">
-          Initial: {formatValue(initialValue)}
-        </p>
-        <p className={`text-sm ${growthValue >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-          Growth: {formatValue(growthValue)} 
-          <span className="ml-1">({changePercent.toFixed(1)}%)</span>
-        </p>
-      </div>
-    );
-  }
+    return {
+      totalFormatted: formatValue(totalValue, baseCurrency),
+      initialFormatted: formatValue(initialValue, baseCurrency),
+      changePercent: changePercent.toFixed(1)
+    };
+  }, [active, payload, formatValue, baseCurrency]);
   
-  return null;
+  if (!formattedValues) return null;
+  
+  return (
+    <div className="bg-white p-4 rounded shadow-lg border border-gray-200">
+      <p className="font-medium text-gray-900">{label}</p>
+      <p className="text-sm text-gray-600 mt-2">
+        Total: {formattedValues.totalFormatted}
+      </p>
+      <p className="text-sm text-gray-600">
+        Initial: {formattedValues.initialFormatted}
+      </p>
+      <p className={`text-sm ${payload && payload[1].value >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+        Growth: {formattedValues.changePercent}%
+      </p>
+    </div>
+  );
 };
 
 // Memoize the CustomTooltip component to prevent unnecessary re-renders

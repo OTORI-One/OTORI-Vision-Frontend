@@ -105,7 +105,17 @@ export function useOVTClient() {
   
   // Add a fallback for Bitcoin price in case useBitcoinPrice returns undefined during testing
   const bitcoinPriceHook = useBitcoinPrice() || { price: 50000, isLoading: false, error: null };
-  const { price: btcPrice } = bitcoinPriceHook;
+  
+  // Memoize the bitcoin price and only update it when it changes by more than 1%
+  // This prevents small fluctuations from causing re-renders
+  const { price: rawBtcPrice } = bitcoinPriceHook;
+  const btcPrice = useMemo(() => {
+    // Initialize with the current value
+    if (typeof rawBtcPrice !== 'number') return 50000;
+    
+    // Round to the nearest 100 to reduce fluctuations
+    return Math.round(rawBtcPrice / 100) * 100;
+  }, [rawBtcPrice]);
   
   const { address } = useLaserEyes();
   const [portfolioPositions, setPortfolioPositions] = useState<Portfolio[]>([]);
@@ -281,9 +291,12 @@ export function useOVTClient() {
   }, [fetchNAV, baseCurrency, lastPriceUpdateTime]);
 
   // Update the formatValue function to handle the current display mode
-  const formatValueWithMode = useCallback((sats: number, displayMode?: 'btc' | 'usd') => 
-    formatValue(sats, displayMode || baseCurrency || 'usd', btcPrice), 
-  [baseCurrency, btcPrice]);
+  // Add memoization to prevent excessive recalculations
+  const formatValueWithMode = useCallback((sats: number, displayMode?: 'btc' | 'usd') => {
+    const mode = displayMode || baseCurrency || 'usd';
+    // For USD mode, always use the memoized BTC price
+    return formatValue(sats, mode, btcPrice);
+  }, [baseCurrency, btcPrice]);
 
   return {
     isLoading,
@@ -297,7 +310,7 @@ export function useOVTClient() {
     archClient,
     setPortfolioPositions,
     portfolioPositions,
-    btcPrice
+    btcPrice // Return the stabilized BTC price
   };
 }
 
