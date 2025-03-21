@@ -3,7 +3,7 @@ import Layout from '../components/Layout';
 import { useOVTClient } from '../src/hooks/useOVTClient';
 import { useLaserEyes } from '@omnisat/lasereyes';
 import { getDataSourceIndicator } from '../src/lib/hybridModeUtils';
-import DataSourceIndicator from '../src/components/DataSourceIndicator';
+import DataSourceIndicator from '../components/DataSourceIndicator';
 import { usePortfolioPrices } from '../src/hooks/usePortfolioPrices';
 import { ensurePortfolioDataLoaded } from '../src/utils/portfolioLoader';
 

@@ -298,6 +298,48 @@ export function useOVTClient() {
     return formatValue(sats, mode, btcPrice);
   }, [baseCurrency, btcPrice]);
 
+  // Add position management functions
+  const addPosition = useCallback(async (position: Omit<Portfolio, 'address' | 'current' | 'change'>) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Create a new position with generated values
+      const newPosition: Portfolio = {
+        ...position,
+        address: `mock-address-${position.name.replace(/\s+/g, '-').toLowerCase()}`,
+        current: position.value, // Initialize current value same as initial value
+        change: 0 // Initialize with no change
+      };
+      
+      // Add to existing positions
+      setPortfolioPositions(prev => [...prev, newPosition]);
+      
+      return newPosition;
+    } catch (error) {
+      console.error('Error adding position:', error);
+      setError('Failed to add position');
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Add getPositions function
+  const getPositions = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      return portfolioPositions;
+    } catch (error) {
+      console.error('Error getting positions:', error);
+      setError('Failed to get positions');
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [portfolioPositions]);
+
   return {
     isLoading,
     error,
@@ -310,7 +352,9 @@ export function useOVTClient() {
     archClient,
     setPortfolioPositions,
     portfolioPositions,
-    btcPrice // Return the stabilized BTC price
+    btcPrice,
+    addPosition,
+    getPositions
   };
 }
 

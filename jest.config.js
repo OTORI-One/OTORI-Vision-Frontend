@@ -20,7 +20,7 @@ const customJestConfig = {
       tsconfig: 'tsconfig.json'
     }]
   },
-  roots: ['<rootDir>/src'],
+  roots: ['<rootDir>/src', '<rootDir>/components'],
   modulePaths: ['<rootDir>'],
   moduleDirectories: ['node_modules', 'src'],
   testMatch: ['**/__tests__/**/*.test.(ts|tsx)'],

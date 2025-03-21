@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useOVTClient } from '../../src/hooks/useOVTClient';
+import type { Portfolio } from '../../src/hooks/useOVTClient';
 
 const SATS_PER_BTC = 100000000;
 
@@ -9,6 +10,7 @@ interface PositionManagementProps {
 
 export default function PositionManagement({ onActionRequiringMultiSig }: PositionManagementProps) {
   const { addPosition, getPositions, formatValue } = useOVTClient();
+  const [positions, setPositions] = useState<Portfolio[]>([]);
   const [newPosition, setNewPosition] = useState({
     name: '',
     description: '',
@@ -16,6 +18,19 @@ export default function PositionManagement({ onActionRequiringMultiSig }: Positi
     pricePerToken: '', // in sats
   });
   const [error, setError] = useState<string | null>(null);
+
+  // Load positions on mount
+  useEffect(() => {
+    const loadPositions = async () => {
+      try {
+        const loadedPositions = await getPositions();
+        setPositions(loadedPositions);
+      } catch (error) {
+        console.error('Error loading positions:', error);
+      }
+    };
+    loadPositions();
+  }, [getPositions]);
 
   // Calculate token amount based on investment amount and price per token
   const calculateTokenAmount = (): number => {
@@ -104,8 +119,6 @@ export default function PositionManagement({ onActionRequiringMultiSig }: Positi
       setError(err instanceof Error ? err.message : 'Failed to add position');
     }
   };
-
-  const positions = getPositions();
 
   return (
     <div className="space-y-6">
