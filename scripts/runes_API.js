@@ -10,6 +10,8 @@ app.use(express.json());
 const OVT_RUNE_ID = '240249:101';
 const OVT_RUNE_SYMBOL = 'OTORI•VISION•TOKEN';
 const OVT_TREASURY_ADDRESS = 'tb1pglzcv7mg4xdy8nd2cdulsqgxc5yf35fxu5yvz27cf5gl6wcs4ktspjmytd';
+// LP Wallet address - this will be used to track liquidity
+const LP_ADDRESS = process.env.LP_ADDRESS || 'tb1plp_placeholder_address';
 
 // Helper function to execute ord commands and handle errors
 const execOrdCommand = (command) => {
@@ -62,22 +64,31 @@ app.get('/rune/:id/balances', (req, res) => {
   const runeId = req.params.id || OVT_RUNE_ID;
   
   // In a production environment, this would use the ord balances command
-  // For now, we'll return simulated balances
+  // For now, we'll return simulated balances with LP wallet
   const balances = [
     {
       address: OVT_TREASURY_ADDRESS,
-      amount: 1890000, // 90% of total supply
-      isTreasury: true
+      amount: 1680000, // 80% of total supply
+      isTreasury: true,
+      isLP: false
+    },
+    {
+      address: LP_ADDRESS,
+      amount: 210000, // 10% of total supply
+      isTreasury: false,
+      isLP: true
     },
     {
       address: 'tb1pexampleaddress1',
       amount: 105000, // 5% of total supply
-      isTreasury: false
+      isTreasury: false,
+      isLP: false
     },
     {
       address: 'tb1pexampleaddress2',
       amount: 105000, // 5% of total supply
-      isTreasury: false
+      isTreasury: false,
+      isLP: false
     }
   ];
   
@@ -89,30 +100,88 @@ app.get('/rune/:id/distribution', (req, res) => {
   const runeId = req.params.id || OVT_RUNE_ID;
   
   // In a production environment, this would calculate from the actual balances
-  // For now, we'll return simulated distribution stats
+  // For now, we'll return simulated distribution stats including LP
   const distributionStats = {
     totalSupply: 2100000,
-    treasuryHeld: 1890000,
-    distributed: 210000,
+    treasuryHeld: 1680000, // 80%
+    lpHeld: 210000, // 10%
+    distributed: 210000, // 10% (excluding LP wallet)
     percentDistributed: 10,
+    percentInLP: 10,
     treasuryAddresses: [OVT_TREASURY_ADDRESS],
+    lpAddresses: [LP_ADDRESS],
     distributionEvents: [
+      {
+        txid: 'lpallocation1',
+        amount: 210000,
+        timestamp: Date.now() - 259200000, // 3 days ago
+        recipient: LP_ADDRESS,
+        type: 'lp_allocation'
+      },
       {
         txid: 'mockdistribution1',
         amount: 105000,
         timestamp: Date.now() - 86400000, // Yesterday
-        recipient: 'tb1pexampleaddress1'
+        recipient: 'tb1pexampleaddress1',
+        type: 'user_distribution'
       },
       {
         txid: 'mockdistribution2',
         amount: 105000,
         timestamp: Date.now() - 172800000, // 2 days ago
-        recipient: 'tb1pexampleaddress2'
+        recipient: 'tb1pexampleaddress2',
+        type: 'user_distribution'
       }
     ]
   };
   
   res.json({ success: true, distributionStats });
+});
+
+// Add a new endpoint for LP specific information
+app.get('/rune/:id/lp-info', (req, res) => {
+  const runeId = req.params.id || OVT_RUNE_ID;
+  
+  // Calculate pricing info based on simulated liquidity
+  const lpInfo = {
+    address: LP_ADDRESS,
+    liquidity: {
+      ovt: 210000,
+      btcSats: 52500000, // 0.525 BTC
+      impactMultiplier: 0.00001 // Price impact per OVT
+    },
+    pricing: {
+      currentPriceSats: 250, // 250 sats per OVT
+      lastTradeTime: Date.now() - 3600000, // 1 hour ago
+      dailyVolume: 15000, // 15k OVT
+      weeklyVolume: 45000 // 45k OVT
+    },
+    transactions: [
+      {
+        txid: 'mock_trade_1',
+        type: 'buy',
+        amount: 5000,
+        priceSats: 245,
+        timestamp: Date.now() - 3600000 // 1 hour ago
+      },
+      {
+        txid: 'mock_trade_2',
+        type: 'sell',
+        amount: 2500,
+        priceSats: 252,
+        timestamp: Date.now() - 7200000 // 2 hours ago
+      },
+      {
+        txid: 'mock_trade_3',
+        type: 'buy',
+        amount: 7500,
+        priceSats: 248,
+        timestamp: Date.now() - 14400000 // 4 hours ago
+      }
+    ]
+  };
+  
+  res.json({ success: true, lpInfo });
 });
 
 // Endpoint to send tokens to an address (distribute)

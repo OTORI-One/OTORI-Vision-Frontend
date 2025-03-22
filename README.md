@@ -68,6 +68,35 @@ In hybrid mode, you can configure which aspects of the application use real vs. 
 
 For detailed information about the hybrid mode implementation, see [docs/HYBRID_MODE.md](docs/HYBRID_MODE.md).
 
+## LP Wallet Management
+
+This project includes tools for managing the Liquidity Pool (LP) wallet, which is used for trading simulation.
+
+### LP Wallet Setup
+
+Follow these steps to set up the LP wallet:
+
+1. See [LP Wallet Documentation](./docs/LP_WALLET.md) for detailed setup instructions
+2. Configure your LP wallet address in environment variables or update it directly in the configuration files
+3. Run distribution scripts to allocate Runes tokens to the LP wallet
+
+### LP Distribution Tools
+
+The following npm scripts are available for managing LP wallet and token distribution:
+
+```bash
+# Distribute Runes tokens to the LP wallet
+npm run lp-distribute
+
+# Manage PSBTs for LP wallet
+npm run lp-manage-psbts
+
+# Show LP wallet setup help
+npm run lp-setup-help
+```
+
+See [LP Wallet Documentation](./docs/LP_WALLET.md) for detailed usage instructions.
+
 ## Scripts
 
 The application includes several scripts for development and testing:

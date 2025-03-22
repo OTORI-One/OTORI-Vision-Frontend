@@ -10,7 +10,10 @@
     "test": "jest",
     "populate-positions": "ts-node scripts/populate-initial-positions.ts",
     "mint-ovt": "ts-node scripts/mint-initial-ovt.ts",
-    "seed-contract": "ts-node scripts/seed-contract-data.ts"
+    "seed-contract": "ts-node scripts/seed-contract-data.ts",
+    "lp-distribute": "node scripts/distribute_lp_runes.js",
+    "lp-manage-psbts": "node scripts/manage_lp_psbts.js",
+    "lp-setup-help": "echo 'See docs/LP_WALLET.md for LP wallet setup instructions'"
   },
   "keywords": [],
   "author": "",
