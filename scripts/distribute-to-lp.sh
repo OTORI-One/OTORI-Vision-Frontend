@@ -4,9 +4,9 @@
 # This script prepares the LP wallet with enough OVT tokens to handle user trading
 
 # Configuration (update these values with your actual addresses)
-TREASURY_ADDRESS="${TREASURY_ADDRESS:-tb1pglzcv7mg4xdy8nd2cdulsqgxc5yf35fxu5yvz27cf5gl6wcs4ktspjmytd}"  # Use default or override
-LP_ADDRESS="${LP_ADDRESS:-<LP_WALLET_ADDRESS_HERE>}"  # Replace with actual LP address
-OVT_RUNE_ID="${OVT_RUNE_ID:-OTORI}"  # Replace with actual rune ID
+TREASURY_ADDRESS="${NEXT_PUBLIC_TREASURY_ADDRESS:-tb1pglzcv7mg4xdy8nd2cdulsqgxc5yf35fxu5yvz27cf5gl6wcs4ktspjmytd}"  # Use default or override
+LP_ADDRESS="${NEXT_PUBLIC_LP_ADDRESS:-tb1p3vn6wc0dlud3tvckv95datu3stq4qycz7vj9mzpclfkrv9rh8jqsjrw38f}"  # Replace with actual LP address
+OVT_RUNE_ID="${NEXT_PUBLIC_OVT_RUNE_ID:-240249:101}"  # Replace with actual rune ID
 FEE_RATE=1  # sat/vB
 DISTRIBUTION_AMOUNT=210000  # 10% of supply (if total is 2,100,000)
 DRY_RUN=true  # Set to false to execute the transaction
@@ -81,7 +81,7 @@ echo "Mode: $([ "$DRY_RUN" = true ] && echo 'DRY RUN (no transaction)' || echo '
 echo ""
 
 # Create the transfer command - we'll use ord's wallet balance command
-TRANSFER_CMD="ord --signet wallet balance --rune $OVT_RUNE_ID --amount $DISTRIBUTION_AMOUNT --outpoint <UTXO> --fee-rate $FEE_RATE --destination $LP_ADDRESS"
+TRANSFER_CMD="ord --config ~/.ord/ord.yaml --signet wallet balance --rune $OVT_RUNE_ID --amount $DISTRIBUTION_AMOUNT --outpoint <UTXO> --fee-rate $FEE_RATE --destination $LP_ADDRESS"
 
 echo "Checking for available UTXOs in treasury wallet..."
 # In actual implementation, you would need to get the specific UTXO holding the runes

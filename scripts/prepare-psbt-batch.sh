@@ -4,14 +4,14 @@
 # This script generates PSBTs that allow test customers to acquire OVT tokens
 
 # Configuration
-LP_ADDRESS="${LP_ADDRESS:-<LP_WALLET_ADDRESS_HERE>}"  # Replace with actual LP address
-OVT_RUNE_ID="${OVT_RUNE_ID:-OTORI}"  # Replace with actual rune ID
+LP_ADDRESS="${NEXT_PUBLIC_LP_ADDRESS:-<LP_WALLET_ADDRESS_HERE>}"  # Replace with actual LP address
+OVT_RUNE_ID="${NEXT_PUBLIC_OVT_RUNE_ID:-OTORI}"  # Replace with actual rune ID
 OUTPUT_DIR="./psbt-transactions"
 NUM_TRANSACTIONS=100  # Number of PSBTs to generate
 MIN_AMOUNT=500  # Minimum amount of OVT per transaction
 MAX_AMOUNT=5000  # Maximum amount of OVT per transaction
 FEE_RATE=1  # sat/vB
-BITCOIN_AMOUNT=0.0000546  # Minimum bitcoin amount for each output (546 sats)
+BITCOIN_AMOUNT=0.0000569  # Minimum bitcoin amount for each output (569 sats)
 DRY_RUN=true  # Set to false to execute transactions
 
 # Ensure bitcoin-cli is available
@@ -113,8 +113,7 @@ create_psbt() {
     # 2. Send the exact OVT runes amount
     
     # Example command (you'll need to adapt this to your specific setup)
-    local cmd="bitcoin-cli -signet -rpcwallet=lp walletcreatefundedpsbt [] [{\"$recipient\":$BITCOIN_AMOUNT, \"$OVT_RUNE_ID\":$amount}] 0 {\"fee_rate\":$FEE_RATE} true"
-    
+    local cmd="ord --config ~/.ord/ord.yaml --signet wallet send $recipient $amount$OVT_RUNE_ID --fee-rate $FEE_RATE"    
     if [ "$DRY_RUN" = true ]; then
         echo "Would execute: $cmd"
         echo "PSBT would be saved to: $filename"
