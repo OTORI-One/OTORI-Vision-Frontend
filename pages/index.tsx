@@ -58,12 +58,12 @@ export default function Dashboard() {
     const satsValue = navData.totalValueSats;
     console.log('NAV in sats:', satsValue);
     
-    // Get token data from mock-data/token-data.json
-    const tokenSupply = 500000; // Hardcoded from token-data.json
-    console.log('Token supply:', tokenSupply);
+    // Get distributed token count from navData
+    const distributedTokens = navData.tokenDistribution?.distributed || 0;
+    console.log('Distributed tokens:', distributedTokens);
     
-    // Calculate price per token in sats
-    const pricePerOVT = Math.floor(satsValue / tokenSupply);
+    // Calculate price per token in sats - if no tokens are distributed yet, return 0 to prevent division by zero
+    const pricePerOVT = distributedTokens > 0 ? Math.floor(satsValue / distributedTokens) : 0;
     console.log('Calculated price per OVT:', pricePerOVT, 'sats');
     
     return pricePerOVT;

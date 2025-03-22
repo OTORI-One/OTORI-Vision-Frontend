@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { ArchClient } from '../lib/archClient';
-import { RuneClient } from '../lib/runeClient';
+import { RuneClient, OVT_RUNE_ID } from '../lib/runeClient';
 import { useBitcoinPrice } from '../hooks/useBitcoinPrice';
 import { useLaserEyes } from '@omnisat/lasereyes';
 import { 
@@ -52,7 +52,10 @@ interface NAVData {
 }
 
 // Initialize clients
-const runeClient = new RuneClient();
+const runeClient = new RuneClient({
+  baseUrl: process.env.NEXT_PUBLIC_RUNES_API_ENDPOINT || 'http://localhost:3030',
+  mockData: process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true'
+});
 const archClient = new ArchClient({
   programId: process.env.NEXT_PUBLIC_PROGRAM_ID || '',
   treasuryAddress: process.env.NEXT_PUBLIC_TREASURY_ADDRESS || 'tb1pglzcv7mg4xdy8nd2cdulsqgxc5yf35fxu5yvz27cf5gl6wcs4ktspjmytd',
@@ -209,9 +212,13 @@ export function useOVTClient() {
         throw new Error('Wallet not connected');
       }
 
-      // Get transaction info for the address
-      const txInfo = await runeClient.getTransactionInfo(address);
-      return txInfo ? [txInfo] : [];
+      // For now, return empty array as transaction history requires additional implementation
+      console.log('Transaction history for address:', address);
+      return [];
+      
+      // Implementation placeholder for when getTransactionInfo is added to RuneClient
+      // const txInfo = await runeClient.getTransactionInfo(address);
+      // return txInfo ? [txInfo] : [];
     } catch (error) {
       console.error('Error fetching transaction history:', error);
       return [];
@@ -245,18 +252,32 @@ export function useOVTClient() {
       // Get real rune data with fallback for tests
       let runeData;
       try {
-        runeData = await runeClient.getRuneInfo();
+        // Get rune info and distribution stats
+        const basicRuneInfo = await runeClient.getRuneInfo(OVT_RUNE_ID);
+        const distributionStats = await runeClient.getDistributionStats(OVT_RUNE_ID);
+        
+        runeData = {
+          id: basicRuneInfo.id,
+          symbol: basicRuneInfo.symbol,
+          supply: {
+            total: distributionStats.totalSupply,
+            distributed: distributionStats.distributed,
+            treasury: distributionStats.treasuryHeld,
+            percentDistributed: distributionStats.percentDistributed
+          },
+          events: distributionStats.distributionEvents
+        };
       } catch (err) {
         // Reduced logging verbosity
-        console.warn('Using fallback rune data');
+        console.warn('Using fallback rune data', err);
         runeData = {
           id: 'test-rune-id',
           symbol: 'OVT',
           supply: {
-            total: 21000000,
-            distributed: 1000000,
-            treasury: 20000000,
-            percentDistributed: 4.76
+            total: 2100000,
+            distributed: 210000,
+            treasury: 1680000,
+            percentDistributed: 10
           },
           events: []
         };
@@ -268,11 +289,17 @@ export function useOVTClient() {
         changePercentage: `${portfolioGrowthPercentage.toFixed(2)}%`,
         portfolioItems,
         tokenDistribution: {
-          totalSupply: runeData?.supply?.total || 21000000,
-          distributed: runeData?.supply?.distributed || 1000000,
-          runeId: runeData?.id || 'test-rune-id',
-          runeSymbol: runeData?.symbol || 'OVT',
-          distributionEvents: runeData?.events || []
+          totalSupply: runeData.supply.total,
+          distributed: runeData.supply.distributed,
+          runeId: runeData.id,
+          runeSymbol: runeData.symbol,
+          distributionEvents: runeData.events.map(event => ({
+            timestamp: event.timestamp,
+            amount: event.amount,
+            recipient: event.recipient,
+            txid: event.txid,
+            runeTransactionId: event.txid
+          }))
         }
       });
     } catch (error) {

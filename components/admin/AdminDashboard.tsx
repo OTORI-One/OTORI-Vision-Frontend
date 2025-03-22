@@ -291,24 +291,30 @@ export default function AdminDashboard() {
                 <div>
                   <div className="mb-4">
                     <p className="text-sm font-medium text-gray-500">Status</p>
-                    <p className="text-base">Not Etched</p>
+                    <p className="text-base">Etched</p>
                     <p className="text-sm text-gray-500">Bitcoin Rune representing the OTORI Vision Token</p>
+                    <p className="text-sm text-gray-600 mt-1">Rune ID: {navData?.tokenDistribution?.runeId || '240249:101'}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Initial Supply</p>
-                    <p className="text-base">500,000</p>
+                    <p className="text-base">{navData?.tokenDistribution?.totalSupply?.toLocaleString() || '2,100,000'}</p>
                   </div>
                 </div>
                 <div>
                   <div className="mb-4">
                     <p className="text-sm font-medium text-gray-500">Current Supply</p>
-                    <p className="text-base">500,000</p>
+                    <p className="text-base">{navData?.tokenDistribution?.totalSupply?.toLocaleString() || '2,100,000'}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Minting</p>
-                    <p className="text-base">Enabled</p>
-                    <p className="text-sm font-medium text-gray-500 mt-2">Minting Events</p>
-                    <p className="text-base">0</p>
+                    <p className="text-sm font-medium text-gray-500">Distribution</p>
+                    <p className="text-base">
+                      {navData?.tokenDistribution?.distributed?.toLocaleString() || '0'} tokens 
+                      ({navData?.tokenDistribution ? 
+                        ((navData.tokenDistribution.distributed / navData.tokenDistribution.totalSupply) * 100).toFixed(2) 
+                        : '0'}%)
+                    </p>
+                    <p className="text-sm font-medium text-gray-500 mt-2">Distribution Events</p>
+                    <p className="text-base">{navData?.tokenDistribution?.distributionEvents?.length || '0'}</p>
                   </div>
                 </div>
               </div>

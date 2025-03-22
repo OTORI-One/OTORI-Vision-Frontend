@@ -11,7 +11,7 @@ const OVT_RUNE_ID = '240249:101';
 const OVT_RUNE_SYMBOL = 'OTORI•VISION•TOKEN';
 const OVT_TREASURY_ADDRESS = 'tb1pglzcv7mg4xdy8nd2cdulsqgxc5yf35fxu5yvz27cf5gl6wcs4ktspjmytd';
 // LP Wallet address - this will be used to track liquidity
-const LP_ADDRESS = process.env.LP_ADDRESS || 'tb1plp_placeholder_address';
+const LP_ADDRESS = 'tb1p3vn6wc0dlud3tvckv95datu3stq4qycz7vj9mzpclfkrv9rh8jqsjrw38f';
 
 // Helper function to execute ord commands and handle errors
 const execOrdCommand = (command) => {

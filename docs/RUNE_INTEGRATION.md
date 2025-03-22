@@ -2,6 +2,11 @@
 
 This document describes the integration of the OTORI Vision Token (OVT) with Bitcoin's Runes protocol on signet.
 
+## Wallet Addresses
+
+- OVT Treasury: `tb1pglzcv7mg4xdy8nd2cdulsqgxc5yf35fxu5yvz27cf5gl6wcs4ktspjmytd`
+- LP Wallet: `tb1p3vn6wc0dlud3tvckv95datu3stq4qycz7vj9mzpclfkrv9rh8jqsjrw38f`
+
 ## Overview
 
 The OVT token is now implemented as a Bitcoin Rune on signet, which provides the following benefits:
