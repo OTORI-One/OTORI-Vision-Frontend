@@ -1,3 +1,105 @@
+# OTORI Vision Monorepo
+
+This repository contains the full OTORI Vision application, comprising both frontend and backend components.
+
+## Repository Structure
+
+```
+OTORI-Vision/
+├── frontend/       (Next.js application)
+├── backend/        (Express API and scripts)
+│   ├── api/        (API services)
+│   └── scripts/    (Utility scripts)
+├── program/        (Arch Network program)
+├── shared/         (Shared utilities and types)
+└── docs/           (Documentation)
+```
+
+## Development
+
+### Prerequisites
+
+- Node.js 18+
+- npm 9+
+- Bitcoin Signet setup (for runes functionality)
+- Arch Network SDK (for program development)
+
+### Setup
+
+1. Clone the repository
+
+```bash
+git clone https://github.com/your-username/OTORI-Vision.git
+cd OTORI-Vision
+```
+
+2. Install dependencies
+
+```bash
+npm install
+```
+
+3. Set up environment variables
+
+```bash
+cp .env.example .env.local
+# Edit .env.local with your configuration
+```
+
+### Running the Application
+
+#### Development mode
+
+To run both frontend and backend in development mode:
+
+```bash
+npm run dev
+```
+
+To run only the frontend:
+
+```bash
+npm run frontend:dev
+```
+
+To run only the backend:
+
+```bash
+npm run backend:dev
+```
+
+#### Production mode
+
+Build and start the application:
+
+```bash
+npm run build
+npm start
+```
+
+## Backend Services
+
+The backend includes:
+
+1. **Runes API** - API for managing OTORI Vision Token (OVT) runes
+2. **Distribution Scripts** - Scripts for distributing tokens and managing liquidity
+
+## Frontend Application
+
+The frontend is a Next.js application that provides:
+
+1. **Portfolio Management** - View and manage your OVT portfolio
+2. **Transaction History** - View transaction history and activity
+3. **Analytics** - Token supply, distribution, and other analytics
+
+## Documentation
+
+For more detailed documentation, please refer to the files in the `docs/` directory:
+
+- [LP Wallet Setup](docs/LP_WALLET.md)
+- [Rune Integration](docs/RUNE_INTEGRATION.md)
+- [Price Movement Algorithm](docs/PRICE_MOVEMENT_ALGORITHM.md)
+
 # OTORI Vision Token (OVT) Frontend
 
 ## Overview
