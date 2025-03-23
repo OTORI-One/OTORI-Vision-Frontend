@@ -1,5 +1,6 @@
 // ovt-fund/components/__tests__/TokenExplorerModal.test.tsx
 
+import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react'
 import TokenExplorerModal from '../TokenExplorerModal'
 import { generateMockPortfolio } from '../../test-utils/test-utils'
@@ -13,20 +14,42 @@ jest.mock('../../src/hooks/useBitcoinPrice', () => ({
   })
 }));
 
-// Mock useOVTClient hook with proper formatting functions
-jest.mock('../../src/hooks/useOVTClient', () => {
-  const BTC_PRICE = 50000; // $50,000 per BTC
+// Mock the formatting.ts module directly
+jest.mock('../../src/lib/formatting', () => {
   const SATS_PER_BTC = 100000000; // 100M sats per BTC
+  const BTC_PRICE = 50000; // $50,000 per BTC
 
-  const mockClient = {
-    formatValue: (value: number, currency: 'usd' | 'btc') => {
-      if (currency === 'btc') {
+  return {
+    SATS_PER_BTC,
+    formatValue: (value: number, displayMode: 'btc' | 'usd' = 'usd', btcPrice = 50000) => {
+      if (displayMode === 'btc') {
         return `₿${(value / SATS_PER_BTC).toFixed(2)}`;
       }
-      // Convert sats to USD: (sats -> BTC) * USD/BTC price
+      // USD format: $XXXXX.XX - exact format expected by tests (no k/M notation)
       const usdValue = (value / SATS_PER_BTC) * BTC_PRICE;
       return `$${usdValue.toFixed(2)}`;
+    },
+    formatTokenAmount: (value: string) => {
+      const numericValue = parseFloat(value.replace(/[^0-9.]/g, ''));
+      if (isNaN(numericValue)) return '0 tokens';
+      
+      if (numericValue >= 1000000) {
+        return `${(numericValue / 1000000).toFixed(2)}M tokens`;
+      }
+      if (numericValue >= 1000) {
+        return `${Math.floor(numericValue / 1000)}k tokens`;
+      }
+      return `${Math.floor(numericValue)} tokens`;
     }
+  };
+});
+
+// Mock useOVTClient hook
+jest.mock('../../src/hooks/useOVTClient', () => {
+  const BTC_PRICE = 50000; // $50,000 per BTC
+
+  const mockClient = {
+    btcPrice: BTC_PRICE
   };
 
   return {

@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom';
-import { render } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act } from 'react-dom/test-utils';
 import userEvent from '@testing-library/user-event';
 import PositionManagement from '../admin/PositionManagement';
 import { useOVTClient } from '../../src/hooks/useOVTClient';
@@ -45,12 +46,12 @@ describe('PositionManagement', () => {
   });
 
   it('handles form input changes and validates currency spent calculations', async () => {
-    render(<PositionManagement {...defaultProps} />);
+    const { getByLabelText } = render(<PositionManagement {...defaultProps} />);
     
-    const projectNameInput = screen.getByLabelText('Project Name');
-    const amountInput = screen.getByLabelText('Investment Amount (BTC)') as HTMLInputElement;
-    const priceInput = screen.getByLabelText('Price per Token (sats)') as HTMLInputElement;
-    const tokenAmountInput = screen.getByLabelText('Token Amount (Calculated)') as HTMLInputElement;
+    const projectNameInput = getByLabelText('Project Name');
+    const amountInput = getByLabelText('Investment Amount (BTC)') as HTMLInputElement;
+    const priceInput = getByLabelText('Price per Token (sats)') as HTMLInputElement;
+    const tokenAmountInput = getByLabelText('Token Amount (Calculated)') as HTMLInputElement;
     
     await act(async () => {
       fireEvent.change(projectNameInput, { target: { value: 'Test Project' } });
@@ -68,18 +69,18 @@ describe('PositionManagement', () => {
   });
 
   it('submits position form with proper data processing', async () => {
-    render(<PositionManagement {...defaultProps} />);
+    const { getByLabelText, getByText } = render(<PositionManagement {...defaultProps} />);
     
     // Fill out the form
     await act(async () => {
-      fireEvent.change(screen.getByLabelText('Project Name'), { target: { value: 'Test Project' } });
-      fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Test Description' } });
-      fireEvent.change(screen.getByLabelText('Investment Amount (BTC)'), { target: { value: '1' } });
-      fireEvent.change(screen.getByLabelText('Price per Token (sats)'), { target: { value: '100' } });
+      fireEvent.change(getByLabelText('Project Name'), { target: { value: 'Test Project' } });
+      fireEvent.change(getByLabelText('Description'), { target: { value: 'Test Description' } });
+      fireEvent.change(getByLabelText('Investment Amount (BTC)'), { target: { value: '1' } });
+      fireEvent.change(getByLabelText('Price per Token (sats)'), { target: { value: '100' } });
     });
     
     // Submit the form
-    const submitButton = screen.getByText('Add Position');
+    const submitButton = getByText('Add Position');
     await act(async () => {
       fireEvent.click(submitButton);
     });
@@ -104,10 +105,10 @@ describe('PositionManagement', () => {
   });
 
   it('validates required fields and shows error messages', async () => {
-    render(<PositionManagement {...defaultProps} />);
+    const { getByText, getByRole } = render(<PositionManagement {...defaultProps} />);
     
     // Try to submit without filling required fields
-    const submitButton = screen.getByText('Add Position');
+    const submitButton = getByText('Add Position');
     
     // Use await act for the form submission
     await act(async () => {
@@ -116,7 +117,7 @@ describe('PositionManagement', () => {
     
     // Check for error message in the error div
     await waitFor(() => {
-      const errorElement = screen.getByRole('alert');
+      const errorElement = getByRole('alert');
       expect(errorElement).toHaveTextContent('Project name is required');
     });
     
@@ -125,10 +126,10 @@ describe('PositionManagement', () => {
   });
 
   it('clears error when user starts typing', async () => {
-    render(<PositionManagement {...defaultProps} />);
+    const { getByText, getByRole, getByLabelText, queryByRole } = render(<PositionManagement {...defaultProps} />);
     
     // Submit empty form to trigger error
-    const submitButton = screen.getByText('Add Position');
+    const submitButton = getByText('Add Position');
     
     // Use await act for the form submission
     await act(async () => {
@@ -137,35 +138,35 @@ describe('PositionManagement', () => {
     
     // Check for error message
     await waitFor(() => {
-      const errorElement = screen.getByRole('alert');
+      const errorElement = getByRole('alert');
       expect(errorElement).toHaveTextContent('Project name is required');
     });
     
     // Start typing in project name
     await act(async () => {
-      fireEvent.change(screen.getByLabelText('Project Name'), { target: { value: 'Test Project' } });
+      fireEvent.change(getByLabelText('Project Name'), { target: { value: 'Test Project' } });
     });
     
     // Check that error message is cleared
     await waitFor(() => {
-      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(queryByRole('alert')).not.toBeInTheDocument();
     });
   });
 
   it('formats large satoshi amounts as BTC', async () => {
-    render(<PositionManagement {...defaultProps} />);
+    const { getByLabelText, getByText } = render(<PositionManagement {...defaultProps} />);
     
     // Enter values that result in > 10M sats
     await act(async () => {
-      fireEvent.change(screen.getByLabelText('Investment Amount (BTC)'), { target: { value: '1' } });
-      fireEvent.change(screen.getByLabelText('Price per Token (sats)'), { target: { value: '333' } });
+      fireEvent.change(getByLabelText('Investment Amount (BTC)'), { target: { value: '1' } });
+      fireEvent.change(getByLabelText('Price per Token (sats)'), { target: { value: '333' } });
     });
     
     // Check for token amount calculation with proper formatting
     await waitFor(() => {
-      const tokenAmountInput = screen.getByLabelText('Token Amount (Calculated)');
+      const tokenAmountInput = getByLabelText('Token Amount (Calculated)');
       expect(tokenAmountInput).toHaveValue('300300');
-      expect(screen.getByText('300.30k tokens')).toBeInTheDocument();
+      expect(getByText('300.30k tokens')).toBeInTheDocument();
     });
   });
 
@@ -190,10 +191,10 @@ describe('PositionManagement', () => {
       mockMode: true
     });
 
-    render(<PositionManagement {...defaultProps} />);
+    const { getByText } = render(<PositionManagement {...defaultProps} />);
     
     await waitFor(() => {
-      expect(screen.getByText('Test Position')).toBeInTheDocument();
+      expect(getByText('Test Position')).toBeInTheDocument();
     });
   });
 

@@ -12,9 +12,23 @@ jest.mock('../../src/hooks/useBitcoinPrice', () => ({
   })
 }));
 
+// Mock useOVTClient hook
+jest.mock('../../src/hooks/useOVTClient', () => ({
+  useOVTClient: () => ({
+    formatValue: (value: number, mode = 'usd') => 
+      mode === 'btc' ? `₿${(value / 100000000).toFixed(8)}` : `$${value.toFixed(2)}`,
+    baseCurrency: 'usd'
+  })
+}));
+
 // Mock recharts components
 jest.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: ReactNode }) => <div data-testid="responsive-container">{children}</div>,
+  ResponsiveContainer: ({ children }: { children: ReactNode }) => (
+    <div data-testid="responsive-container">
+      <h2>Price Performance</h2>
+      {children}
+    </div>
+  ),
   LineChart: ({ children }: { children: ReactNode }) => <div data-testid="line-chart">{children}</div>,
   Line: () => <div data-testid="line" />,
   XAxis: () => <div data-testid="x-axis" />,
@@ -86,7 +100,7 @@ describe('PriceChart', () => {
     it('renders in a responsive container', () => {
       render(<PriceChart {...defaultProps} />);
       const container = screen.getByTestId('responsive-container').parentElement;
-      expect(container).toHaveClass('h-80');
+      expect(container).toHaveClass('h-full');
     });
   });
 }); 

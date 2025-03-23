@@ -12,6 +12,10 @@ jest.mock('@omnisat/lasereyes', () => ({
 }));
 
 describe('Integration: useOVTClient and useTradingModule', () => {
+  // Backup original methods for restoration
+  const originalLocalStorage = { ...localStorage };
+  const originalFetch = global.fetch;
+  
   beforeEach(() => {
     localStorage.clear();
     global.fetch = jest.fn();
@@ -19,6 +23,14 @@ describe('Integration: useOVTClient and useTradingModule', () => {
 
   afterEach(() => {
     jest.resetAllMocks();
+    // Restore original methods
+    global.fetch = originalFetch;
+    
+    // Restore localStorage methods we may have overridden
+    Object.defineProperty(window, 'localStorage', {
+      value: originalLocalStorage,
+      writable: true
+    });
   });
 
   it('integrates portfolio management with trading', async () => {
@@ -196,57 +208,92 @@ describe('Integration: useOVTClient and useTradingModule', () => {
   });
 
   it('maintains consistent state between hooks', async () => {
-    // Mock successful API responses
-    (global.fetch as jest.Mock).mockImplementation((url: string) => {
-      if (url.includes('estimate_price_impact')) {
+    // Mock the localStorage methods for this test
+    const originalLocalStorage = window.localStorage;
+    const mockLocalStorage = {
+      getItem: jest.fn((key) => null),
+      setItem: jest.fn(),
+      removeItem: jest.fn(),
+      clear: jest.fn(),
+      length: 0,
+      key: jest.fn(),
+    };
+    
+    // Replace localStorage for this test
+    Object.defineProperty(window, 'localStorage', {
+      value: mockLocalStorage,
+      writable: true
+    });
+    
+    try {
+      // Mock successful API responses
+      (global.fetch as jest.Mock).mockImplementation((url: string) => {
+        if (url.includes('estimate_price_impact')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ estimatedPrice: 49500 })
+          });
+        }
+        if (url.includes('execute_trade')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({
+              txid: 'test-tx',
+              type: 'BUY',
+              amount: 100,
+              price: 50000,
+              timestamp: Date.now(),
+              status: 'pending'
+            })
+          });
+        }
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ estimatedPrice: 49500 })
+          json: () => Promise.resolve({})
         });
-      }
-      if (url.includes('execute_trade')) {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({
-            txid: 'test-tx',
-            type: 'BUY',
-            amount: 100,
-            price: 50000,
-            timestamp: Date.now(),
-            status: 'pending'
-          })
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({})
       });
-    });
 
-    let ovtResult: any;
-    let tradingResult: any;
+      let ovtResult: any;
+      let tradingResult: any;
 
-    await act(async () => {
-      ovtResult = renderHook(() => useOVTClient());
-      tradingResult = renderHook(() => useTradingModule());
-      await new Promise(resolve => setTimeout(resolve, 100)); // Wait for initial effects
-    });
+      await act(async () => {
+        ovtResult = renderHook(() => useOVTClient());
+        tradingResult = renderHook(() => useTradingModule());
+        await new Promise(resolve => setTimeout(resolve, 100)); // Wait for initial effects
+      });
 
-    // Set currency preference
-    await act(async () => {
-      ovtResult.result.current.handleCurrencyChange('btc');
-      await new Promise(resolve => setTimeout(resolve, 100)); // Wait for state updates
-    });
+      // Set currency preference
+      await act(async () => {
+        ovtResult.result.current.handleCurrencyChange('btc');
+        await new Promise(resolve => setTimeout(resolve, 100)); // Wait for state updates
+      });
 
-    expect(ovtResult.result.current.baseCurrency).toBe('btc');
+      expect(ovtResult.result.current.baseCurrency).toBe('btc');
 
-    // Execute trades
-    await act(async () => {
-      await tradingResult.result.current.buyOVT(100);
-      await new Promise(resolve => setTimeout(resolve, 100)); // Wait for state updates
-    });
+      // Execute trades
+      await act(async () => {
+        await tradingResult.result.current.buyOVT(100);
+        await new Promise(resolve => setTimeout(resolve, 500)); // Wait longer for state updates
+      });
 
-    expect(tradingResult.result.current.tradeHistory).toHaveLength(1);
-    expect(localStorage.getItem('tradeHistory')).toBeDefined();
+      expect(tradingResult.result.current.tradeHistory).toHaveLength(1);
+      
+      // Check that localStorage.setItem was called
+      expect(mockLocalStorage.setItem).toHaveBeenCalled();
+      
+      // Check specifically for tradeHistory calls
+      const tradeHistoryCalls = mockLocalStorage.setItem.mock.calls.filter(
+        call => typeof call[0] === 'string' && call[0].includes('trade')
+      );
+      
+      // At least one call should be related to trade history
+      expect(tradeHistoryCalls.length).toBeGreaterThan(0);
+    } finally {
+      // Restore original localStorage
+      Object.defineProperty(window, 'localStorage', {
+        value: originalLocalStorage,
+        writable: true
+      });
+    }
   });
 }); 

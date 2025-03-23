@@ -1,13 +1,27 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import TradingInterface from '../TradingInterface';
+import { TradingInterface } from '../TradingInterface';
+
+// Mock @headlessui/react Switch component
+jest.mock('@headlessui/react', () => ({
+  Switch: ({ checked, onChange, className, children }) => (
+    <button
+      data-testid="mock-switch"
+      className={className}
+      onClick={() => onChange(!checked)}
+    >
+      {children}
+    </button>
+  )
+}));
 
 // Mock the hooks
 jest.mock('../../src/hooks/useOVTClient', () => ({
   useOVTClient: () => ({
     formatValue: (value) => `${value} sats`,
     baseCurrency: 'btc',
+    btcPrice: 50000,
     dataSourceIndicator: {
       trading: {
         isMock: true,

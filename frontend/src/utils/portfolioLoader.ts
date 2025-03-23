@@ -1,6 +1,10 @@
 import { shouldUseMockData } from '../lib/hybridModeUtils';
 import mockPortfolioData from '../mock-data/portfolio-positions.json';
 
+// Export these constants for testing purposes
+export const PORTFOLIO_STORAGE_KEY = 'ovt-portfolio-positions';
+export const PORTFOLIO_STORAGE_ALT_KEY = 'ovt_positions';
+
 /**
  * Ensures portfolio data is loaded in localStorage
  * This utility extracts the ensurePortfolioDataLoaded function from the portfolio page
@@ -13,7 +17,7 @@ export function ensurePortfolioDataLoaded() {
   
   try {
     // Check if data already exists in localStorage
-    const existingData = localStorage.getItem('ovt-portfolio-positions');
+    const existingData = localStorage.getItem(PORTFOLIO_STORAGE_KEY);
     
     // Only initialize if no data exists and we should use mock data
     if (!existingData && shouldUseMockData('portfolio')) {
@@ -29,10 +33,10 @@ export function ensurePortfolioDataLoaded() {
       }));
       
       // Store in localStorage
-      localStorage.setItem('ovt-portfolio-positions', JSON.stringify(portfolioPositions));
+      localStorage.setItem(PORTFOLIO_STORAGE_KEY, JSON.stringify(portfolioPositions));
       
       // Also store in the alternate 'ovt_positions' key for compatibility with both implementations
-      localStorage.setItem('ovt_positions', JSON.stringify(portfolioPositions));
+      localStorage.setItem(PORTFOLIO_STORAGE_ALT_KEY, JSON.stringify(portfolioPositions));
       
       console.log('Mock portfolio data injected into localStorage');
       
@@ -42,8 +46,8 @@ export function ensurePortfolioDataLoaded() {
       console.log('Portfolio data already exists in localStorage');
       
       // Ensure we have data in the alternate key as well for compatibility
-      if (!localStorage.getItem('ovt_positions')) {
-        localStorage.setItem('ovt_positions', existingData);
+      if (!localStorage.getItem(PORTFOLIO_STORAGE_ALT_KEY)) {
+        localStorage.setItem(PORTFOLIO_STORAGE_ALT_KEY, existingData);
       }
     } else {
       console.log('Using real portfolio data, will be fetched when needed');
