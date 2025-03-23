@@ -4,7 +4,8 @@
   "private": true,
   "workspaces": [
     "frontend",
-    "backend"
+    "backend",
+    "program"
   ],
   "scripts": {
     "frontend:dev": "npm run dev --workspace=frontend",
@@ -12,10 +13,12 @@
     "frontend:start": "npm run start --workspace=frontend",
     "backend:dev": "npm run dev --workspace=backend",
     "backend:start": "npm run start --workspace=backend",
+    "program:build": "cd program && cargo build",
+    "program:test": "cd program && cargo test",
     "dev": "concurrently \"npm run frontend:dev\" \"npm run backend:dev\"",
-    "build": "npm run frontend:build",
+    "build": "npm run frontend:build && npm run program:build",
     "start": "concurrently \"npm run frontend:start\" \"npm run backend:start\"",
-    "test": "npm run test --workspace=frontend"
+    "test": "npm run test --workspace=frontend && npm run program:test"
   },
   "keywords": [],
   "author": "",
@@ -27,7 +30,6 @@
     "@omnisat/lasereyes": "^0.0.140",
     "@omnisat/lasereyes-core": "^0.0.62",
     "@omnisat/lasereyes-react": "^0.0.57",
-    "@testing-library/react-hooks": "^8.0.1",
     "autoprefixer": "^10.4.17",
     "dotenv": "^16.4.7",
     "lasereyes-mono": "github:omnisat/lasereyes-mono#main",

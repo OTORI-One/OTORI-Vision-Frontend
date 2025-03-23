@@ -1,6 +1,11 @@
 // Learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom'
 
+// Explicitly initialize expect extensions
+const { expect } = require('@jest/globals');
+const matchers = require('@testing-library/jest-dom/matchers');
+expect.extend(matchers);
+
 // Add global fetch polyfill for Node environment
 global.fetch = jest.fn(() =>
   Promise.resolve({
@@ -10,6 +15,32 @@ global.fetch = jest.fn(() =>
     statusText: 'OK',
   })
 );
+
+// Mock axios for API calls
+jest.mock('axios', () => ({
+  get: jest.fn(() => Promise.resolve({ 
+    data: {},
+    status: 200,
+    statusText: 'OK',
+  })),
+  post: jest.fn(() => Promise.resolve({
+    data: {},
+    status: 200,
+    statusText: 'OK',
+  })),
+  create: jest.fn().mockReturnValue({
+    get: jest.fn(() => Promise.resolve({ 
+      data: {},
+      status: 200,
+      statusText: 'OK',
+    })),
+    post: jest.fn(() => Promise.resolve({
+      data: {},
+      status: 200,
+      statusText: 'OK',
+    }))
+  })
+}));
 
 // Mock next/router
 jest.mock('next/router', () => ({

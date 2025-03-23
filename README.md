@@ -271,4 +271,34 @@ To deploy the application:
 
 ## License
 
-This project is licensed under the ISC License. 
+This project is licensed under the ISC License.
+
+## Testing
+
+### Unit Tests
+
+Run unit tests with mock data:
+
+```bash
+npm run test:unit
+```
+
+These tests use mock implementations of the RuneClient and other dependencies to ensure fast, reliable testing without external dependencies.
+
+### Integration Tests
+
+Run integration tests with real backend (requires OrdPi to be running):
+
+```bash
+npm run test:integration
+```
+
+These tests connect to the actual OrdPi backend when available to validate real integrations. If the OrdPi is not available, they will still run but in mock mode.
+
+### All Tests
+
+Run both unit and integration tests:
+
+```bash
+npm run test:all
+``` 

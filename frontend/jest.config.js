@@ -20,9 +20,9 @@ const customJestConfig = {
       tsconfig: 'tsconfig.json'
     }]
   },
-  roots: ['<rootDir>/src', '<rootDir>/components'],
+  roots: ['<rootDir>'],
   modulePaths: ['<rootDir>'],
-  moduleDirectories: ['node_modules', 'src'],
+  moduleDirectories: ['node_modules', '.'],
   testMatch: ['**/__tests__/**/*.test.(ts|tsx)'],
   collectCoverageFrom: [
     'components/**/*.{js,jsx,ts,tsx}',
