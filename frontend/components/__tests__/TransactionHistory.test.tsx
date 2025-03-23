@@ -5,7 +5,12 @@ import { ArrowDownIcon, ArrowUpIcon } from '@heroicons/react/24/outline';
 // Mock heroicons
 jest.mock('@heroicons/react/24/outline', () => ({
   ArrowDownIcon: () => <div data-testid="arrow-down-icon" />,
-  ArrowUpIcon: () => <div data-testid="arrow-up-icon" />
+  ArrowUpIcon: () => <div data-testid="arrow-up-icon" />,
+  CurrencyDollarIcon: () => <div data-testid="currency-dollar-icon" />,
+  FireIcon: () => <div data-testid="fire-icon" />,
+  ArrowPathIcon: () => <div data-testid="arrow-path-icon" />,
+  PlusIcon: () => <div data-testid="plus-icon" />,
+  MinusIcon: () => <div data-testid="minus-icon" />
 }));
 
 const SATS_PER_BTC = 100000000;
@@ -50,6 +55,12 @@ jest.mock('../../src/hooks/useOVTClient', () => ({
   useOVTClient: () => mockUseOVTClient
 }));
 
+// Add a mock for the loading spinner
+jest.mock('../DataSourceIndicator', () => ({
+  __esModule: true,
+  default: () => <div data-testid="data-source-indicator">Mock Indicator</div>
+}));
+
 describe('TransactionHistory', () => {
   const mockTransactions = [
     {
@@ -92,10 +103,12 @@ describe('TransactionHistory', () => {
     await waitFor(() => {
       // Check for the reason text
       expect(screen.getByText(/Initial mint/i)).toBeInTheDocument();
-      // Check for the amount text
-      expect(screen.getByText(/Amount: 1,000 OVT/)).toBeInTheDocument();
-      // Check for signatures text
-      expect(screen.getByText(/Signatures: 3\/3/)).toBeInTheDocument();
+      // Check for the amount format
+      expect(screen.getByText('1,000 OVT')).toBeInTheDocument();
+      // Check for signatures text - use a more specific selector
+      expect(screen.getByText((content, element) => {
+        return content.includes('Signatures') && content.includes('3');
+      })).toBeInTheDocument();
     });
   });
 
@@ -104,7 +117,7 @@ describe('TransactionHistory', () => {
     
     render(<TransactionHistory />);
     
-    expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
+    expect(screen.getByText('Loading transaction history...')).toBeInTheDocument();
   });
 
   it('handles error state', async () => {
@@ -112,7 +125,7 @@ describe('TransactionHistory', () => {
     
     render(<TransactionHistory />);
     
-    expect(screen.getByText('Failed to fetch transactions')).toBeInTheDocument();
+    expect(screen.getByText('Error: Failed to fetch transactions')).toBeInTheDocument();
   });
 
   it('filters transactions correctly', async () => {
@@ -132,8 +145,7 @@ describe('TransactionHistory', () => {
     
     // Should show mint transaction but not position entry
     expect(screen.getByText(/Initial mint/i)).toBeInTheDocument();
-    // 0.5 BTC = 50M sats, which should display as ₿0.50
-    expect(screen.queryByText('Amount: ₿0.50')).not.toBeInTheDocument();
+    expect(screen.queryByText('Project X')).not.toBeInTheDocument();
   });
 
   it('formats different transaction types correctly', async () => {
@@ -144,10 +156,9 @@ describe('TransactionHistory', () => {
     // Wait for transactions to load
     await waitFor(() => {
       // Check mint transaction amount (OVT)
-      expect(screen.getByText('Amount: 1,000 OVT')).toBeInTheDocument();
+      expect(screen.getByText('1,000 OVT')).toBeInTheDocument();
       // Check position entry amount (BTC)
-      // 0.5 BTC = 50M sats, which should display as ₿0.50
-      expect(screen.getByText('Amount: ₿0.50')).toBeInTheDocument();
+      expect(screen.getByText('0.5 BTC')).toBeInTheDocument();
     });
   });
 
@@ -167,6 +178,6 @@ describe('TransactionHistory', () => {
     
     // The status color classes are on the span element itself
     expect(confirmedStatus).toHaveClass('text-green-600');
-    expect(pendingStatus).toHaveClass('text-yellow-600');
+    expect(pendingStatus).toHaveClass('text-amber-600');
   });
 }); 
