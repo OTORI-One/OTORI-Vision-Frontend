@@ -2,9 +2,32 @@
 import '@testing-library/jest-dom'
 
 // Explicitly initialize expect extensions
-const { expect } = require('@jest/globals');
-const matchers = require('@testing-library/jest-dom/matchers');
+import { expect } from '@jest/globals';
+import matchers from '@testing-library/jest-dom/matchers';
+
+// This fixes issues with expect.extend
 expect.extend(matchers);
+
+// Mock local storage
+const localStorageMock = (function() {
+  let store = {};
+  return {
+    getItem: jest.fn(key => store[key] || null),
+    setItem: jest.fn((key, value) => {
+      store[key] = value.toString();
+    }),
+    removeItem: jest.fn(key => {
+      delete store[key];
+    }),
+    clear: jest.fn(() => {
+      store = {};
+    })
+  };
+})();
+
+Object.defineProperty(window, 'localStorage', {
+  value: localStorageMock
+});
 
 // Add global fetch polyfill for Node environment
 global.fetch = jest.fn(() =>
@@ -57,7 +80,7 @@ jest.mock('next/router', () => ({
 }))
 
 // Mock Bitcoin price hook
-jest.mock('@/src/hooks/useBitcoinPrice', () => ({
+jest.mock('@/hooks/useBitcoinPrice', () => ({
   useBitcoinPrice: () => ({
     price: 40000,
     loading: false,
@@ -150,6 +173,7 @@ window.ResizeObserver = jest.fn().mockImplementation(() => ({
   disconnect: jest.fn(),
 }));
 
+// TextEncoder/TextDecoder polyfill
 const { TextEncoder, TextDecoder } = require('util');
 
 global.TextEncoder = TextEncoder;
