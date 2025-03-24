@@ -1,4 +1,4 @@
-import { RuneClient, OVT_RUNE_ID, OVT_RUNE_SYMBOL, OVT_TOTAL_SUPPLY, OVT_TREASURY_ADDRESS, OVT_RUNE_DECIMALS, OVT_RUNE } from '../runeClient';
+import { RuneClient, OVT_RUNE_ID, OVT_RUNE_SYMBOL, OVT_RUNE_TICKER, OVT_TOTAL_SUPPLY, OVT_TREASURY_ADDRESS, OVT_RUNE_DECIMALS, OVT_RUNE } from '../runeClient';
 
 // Mock fetch and axios globally
 global.fetch = jest.fn();
@@ -27,8 +27,8 @@ describe('RuneClient', () => {
         mockData: true
       });
       
-      expect(client['baseUrl']).toBe('https://api.example.com');
-      expect(client['mockData']).toBe(true);
+      expect(client.baseUrl).toBe('https://api.example.com');
+      expect(client.mockData).toBe(true);
     });
 
     it('should accept and use provided config', () => {
@@ -37,8 +37,8 @@ describe('RuneClient', () => {
         mockData: false
       });
 
-      expect(customClient['baseUrl']).toBe('http://custom-endpoint');
-      expect(customClient['mockData']).toBe(false);
+      expect(customClient.baseUrl).toBe('http://custom-endpoint');
+      expect(customClient.mockData).toBe(false);
     });
   });
 
@@ -50,6 +50,7 @@ describe('RuneClient', () => {
       // Verify the structure contains expected fields
       expect(info).toHaveProperty('id', OVT_RUNE_ID);
       expect(info).toHaveProperty('symbol', OVT_RUNE_SYMBOL);
+      expect(info).toHaveProperty('ticker', OVT_RUNE_TICKER);
       expect(info).toHaveProperty('divisibility');
       expect(info).toHaveProperty('supply');
       expect(info.supply).toHaveProperty('circulating');
