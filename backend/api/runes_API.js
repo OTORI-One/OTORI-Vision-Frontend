@@ -6,6 +6,22 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
+// Add CORS support
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  
+  next();
+});
+
+
+
 // OVT rune constants
 const OVT_RUNE_ID = process.env.NEXT_PUBLIC_OVT_RUNE_ID || '240249:101';
 const OVT_RUNE_SYMBOL = 'OTORI•VISION•TOKEN';
@@ -596,9 +612,19 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Add global error handling middleware (place this before module.exports)
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).json({
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'production' ? 'An unexpected error occurred' : err.message
+  });
+});
+
 // Start the server if this file is run directly
 if (require.main === module) {
   const PORT = process.env.PORT || 3030;
+  const HOST = process.env.HOST || '0.0.0.0'; // Listen on all network interfaces
   
   // Check if we can connect to bitcoind and ord before starting
   console.log("Checking dependencies...");
@@ -611,13 +637,42 @@ if (require.main === module) {
     console.error("Starting the server anyway, but some functions may not work correctly.");
   }
   
-  app.listen(PORT, () => {
-    console.log(`OTORI Vision Runes API running on port ${PORT}`);
+  app.listen(PORT, HOST, () => {
+    console.log(`OTORI Vision Runes API running on http://${HOST}:${PORT}`);
+    console.log(`IMPORTANT: If this server is exposed to the internet, ensure proper security measures are in place.`);
     console.log(`OVT Rune ID: ${OVT_RUNE_ID}`);
     console.log(`Treasury Address: ${OVT_TREASURY_ADDRESS}`);
     console.log(`LP Address: ${LP_ADDRESS}`);
   });
 }
+// Simple IP-based rate limiting
+const rateLimit = {};
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const RATE_LIMIT_MAX = 60; // 60 requests per minute
 
+app.use((req, res, next) => {
+  const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+  
+  // Initialize or clean up old entries
+  if (!rateLimit[ip] || Date.now() - rateLimit[ip].timestamp > RATE_LIMIT_WINDOW) {
+    rateLimit[ip] = {
+      count: 0,
+      timestamp: Date.now()
+    };
+  }
+  
+  // Increment request count
+  rateLimit[ip].count++;
+  
+  // Check if rate limit exceeded
+  if (rateLimit[ip].count > RATE_LIMIT_MAX) {
+    return res.status(429).json({
+      error: 'Too many requests',
+      message: 'Rate limit exceeded. Please try again later.'
+    });
+  }
+  
+  next();
+});
 // Export the Express app for use in other modules
 module.exports = app;
