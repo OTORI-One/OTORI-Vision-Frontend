@@ -10,6 +10,11 @@ import { useLaserEyes, XVERSE, UNISAT } from '@omnisat/lasereyes';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { getDataSourceIndicator } from '../../src/lib/hybridModeUtils';
+import { usePortfolio } from '../../src/hooks/usePortfolio';
+import { useCurrencyToggle } from '../../src/hooks/useCurrencyToggle';
+import NAVDisplay from '../NAVDisplay';
+import CurrencyToggle from '../CurrencyToggle';
+import WalletConnector from '../WalletConnector';
 
 enum AdminView {
   POSITIONS = 'positions',
@@ -25,15 +30,23 @@ export default function AdminDashboard() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const [isLocalLoading, setIsLocalLoading] = useState(true);
-  const { isLoading, error, navData, formatValue } = useOVTClient();
+  const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
+  
+  // Use our centralized hooks
+  const { isLoading, error, navData } = useOVTClient();
+  const { positions, getTotalValue, getOverallChangePercentage } = usePortfolio();
+  const { currency, formatValue } = useCurrencyToggle();
   const { address, connect, disconnect, network } = useLaserEyes();
 
   // Get data source indicator for portfolio
   const portfolioDataSource = getDataSourceIndicator('portfolio');
 
   const addDebugLog = (message: string) => {
-    console.log('[AdminDashboard]', message);
-    setDebugLogs(prev => [...prev, message]);
+    // Only log in development mode
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[AdminDashboard]', message);
+      setDebugLogs(prev => [...prev, message]);
+    }
   };
 
   // Check if current wallet is an admin with delay to prevent race conditions
@@ -44,6 +57,9 @@ export default function AdminDashboard() {
     // Set loading to true when address changes
     setIsLocalLoading(true);
     
+    // Update connected address
+    setConnectedAddress(address ?? null);
+    
     // Small delay to ensure other components have processed the wallet connection
     const timer = setTimeout(() => {
       if (!address) {
@@ -53,10 +69,7 @@ export default function AdminDashboard() {
         return;
       }
       
-      // List admin wallets for debugging
-      addDebugLog(`Admin wallets (${ADMIN_WALLETS.length}): ${ADMIN_WALLETS.join(', ')}`);
-      
-      // Check admin status with our improved logging
+      // Check admin status
       const adminStatus = isAdminWallet(address);
       addDebugLog(`Admin status check result: ${adminStatus}`);
       setIsAdmin(adminStatus);
@@ -69,8 +82,7 @@ export default function AdminDashboard() {
   // Listen for wallet connection events from WalletConnector
   useEffect(() => {
     const handleWalletConnection = (e: CustomEvent) => {
-      addDebugLog(`[AdminDashboard] Detected wallet connection event: ${e.detail.address}`);
-      // This is just for logging, the LaserEyes hook should handle the actual state update
+      addDebugLog(`Detected wallet connection event: ${e.detail.address}`);
     };
     
     window.addEventListener('wallet-connected', handleWalletConnection as EventListener);
@@ -80,22 +92,16 @@ export default function AdminDashboard() {
   }, []);
 
   // Custom wallet connection handlers that utilize the LaserEyes hook
-  const handleConnectWallet = async (walletType: 'xverse' | 'unisat') => {
-    try {
-      addDebugLog(`Attempting to connect ${walletType} wallet...`);
-      if (walletType === 'xverse') {
-        await connect(XVERSE);
-      } else {
-        await connect(UNISAT);
-      }
-    } catch (err) {
-      addDebugLog(`Error connecting wallet: ${err}`);
-    }
+  const handleConnectWallet = async (walletAddress: string) => {
+    setConnectedAddress(walletAddress);
+    setIsAdmin(isAdminWallet(walletAddress));
   };
   
   const handleDisconnectWallet = () => {
     addDebugLog('Disconnecting wallet...');
     disconnect();
+    setConnectedAddress(null);
+    setIsAdmin(false);
   };
 
   const handleActionRequiringMultiSig = (action: any) => {
@@ -123,6 +129,11 @@ export default function AdminDashboard() {
     setPendingAction(null);
     setIsMultiSigModalOpen(false);
   };
+  
+  // Calculate total portfolio value and change percentage
+  const totalPortfolioValue = formatValue(getTotalValue());
+  const overallChangePercentage = getOverallChangePercentage().toFixed(2);
+  const isPositive = parseFloat(overallChangePercentage) >= 0;
 
   // Return loading indicator while checking admin status
   if (isLocalLoading) {
@@ -140,237 +151,256 @@ export default function AdminDashboard() {
 
   // Return the admin dashboard or access denied message based on admin status
   return (
-    <div className="w-full bg-white shadow-md rounded-lg p-6 font-sans text-gray-800">
-      {/* Back Button */}
-      <div className="mb-4">
-        <Link href="/" className="inline-flex items-center text-blue-600 hover:text-blue-800">
-          <ArrowLeftIcon className="h-4 w-4 mr-1" />
-          <span>Back to Dashboard</span>
-        </Link>
-      </div>
-      
-      {/* Debug Info */}
-      <div className="mb-4 p-2 bg-gray-100 rounded">
-        <p className="text-xs">Debug - isAdmin: {String(isAdmin)}</p>
-        <p className="text-xs">Debug - Address: {address || 'No address'}</p>
-        <p className="text-xs">Debug - Active View: {activeView}</p>
-        <p className="text-xs">Debug - Network: {network || 'Unknown'}</p>
-        
-        {/* Manual wallet connection if no address detected */}
-        {!address && (
-          <div className="mt-2">
-            <p className="text-xs mb-1">No wallet connected. Try connecting manually:</p>
-            <div className="flex space-x-2">
-              <button 
-                onClick={() => handleConnectWallet('xverse')}
-                className="text-xs px-2 py-1 bg-blue-500 text-white rounded"
-              >
-                Connect Xverse
-              </button>
-              <button 
-                onClick={() => handleConnectWallet('unisat')}
-                className="text-xs px-2 py-1 bg-orange-500 text-white rounded"
-              >
-                Connect Unisat
-              </button>
+    <div className="w-full bg-white shadow-md rounded-lg">
+      {/* Navigation Bar */}
+      <div className="bg-white border-b border-primary shadow-sm p-4 mb-6 rounded-t-lg">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-6">
+            {/* Logo */}
+            <div className="flex items-center">
+              <img className="h-8 w-auto mr-2" src="/logo.svg" alt="OTORI" />
+              <span className="text-lg font-bold text-primary">OTORI Vision</span>
             </div>
-          </div>
-        )}
-        
-        {/* Disconnect button if address detected */}
-        {address && (
-          <div className="mt-2">
-            <button 
-              onClick={handleDisconnectWallet}
-              className="text-xs px-2 py-1 bg-gray-500 text-white rounded"
-            >
-              Disconnect Wallet
-            </button>
-          </div>
-        )}
-        
-        {/* Debug Logs */}
-        <div className="mt-2">
-          <p className="text-xs font-semibold">Debug Logs:</p>
-          <div className="max-h-24 overflow-y-auto text-xs">
-            {debugLogs.map((log, index) => (
-              <div key={index} className="text-xs">{log}</div>
-            ))}
-          </div>
-        </div>
-      </div>
-      
-      {/* Changed from hardcoded "true" to use isAdmin state */}
-      {isAdmin ? (
-        <>
-          <div className="border-b border-gray-200 pb-4">
-            <h2 className="text-xl font-semibold text-gray-900">Admin Dashboard</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Manage OVT Fund operations and view system metrics
-            </p>
-          </div>
-          
-          {/* Admin Navigation */}
-          <div className="border-b border-gray-200 mt-4">
-            <nav className="flex py-2 space-x-4 overflow-x-auto">
-              <button
-                onClick={() => setActiveView(AdminView.POSITIONS)}
-                className={`px-3 py-2 text-sm font-medium rounded-md ${
-                  activeView === AdminView.POSITIONS
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                Position Management
-              </button>
-              <button
-                onClick={() => setActiveView(AdminView.MINT)}
-                className={`px-3 py-2 text-sm font-medium rounded-md ${
-                  activeView === AdminView.MINT
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                Token Minting
-              </button>
-              <button
-                onClick={() => setActiveView(AdminView.RUNE_MINT)}
-                className={`px-3 py-2 text-sm font-medium rounded-md ${
-                  activeView === AdminView.RUNE_MINT
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                Rune Minting
-              </button>
-              <button
-                onClick={() => setActiveView(AdminView.HISTORY)}
-                className={`px-3 py-2 text-sm font-medium rounded-md ${
-                  activeView === AdminView.HISTORY
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                Transaction History
-              </button>
+            
+            {/* Navigation Links */}
+            <nav className="flex space-x-4">
+              <a href="/" className="px-3 py-2 rounded-md text-sm font-medium text-primary hover:bg-primary hover:bg-opacity-10">
+                Dashboard
+              </a>
+              <a href="/trade" className="px-3 py-2 rounded-md text-sm font-medium text-primary hover:bg-primary hover:bg-opacity-10">
+                Trade
+              </a>
+              <a href="/portfolio" className="px-3 py-2 rounded-md text-sm font-medium text-primary hover:bg-primary hover:bg-opacity-10">
+                Portfolio
+              </a>
+              <a href="/admin" className="px-3 py-2 rounded-md text-sm font-medium bg-primary text-white">
+                Admin
+              </a>
             </nav>
+            
+            {/* Centralized NAV Display */}
+            <NAVDisplay showChange={true} size="md" />
           </div>
           
-          <div className="mt-6">
-            {/* Fund Metrics Summary */}
-            <div className="p-6 bg-gray-50 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">OVT Fund Metrics</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <p className="text-sm text-gray-500">Total Value</p>
-                  <p className="text-xl font-bold">{navData?.totalValue || "Loading..."}</p>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <p className="text-sm text-gray-500">Change</p>
-                  <p className={`text-xl font-bold ${
-                    parseFloat(navData?.changePercentage || "0") >= 0 
-                      ? 'text-green-600' 
-                      : 'text-red-600'
-                  }`}>
-                    {navData?.changePercentage || "0%"}
-                  </p>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <p className="text-sm text-gray-500">Data Source</p>
-                  <p className="text-xl font-bold">
-                    {portfolioDataSource.isMock ? "Simulated Data" : "Real Contract Data"}
-                  </p>
-                </div>
-              </div>
-            </div>
+          <div className="flex items-center space-x-4">
+            {/* Currency Toggle */}
+            <CurrencyToggle size="md" />
             
-            {/* OVT Rune Information */}
-            <div className="p-6 bg-white border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">OVT Rune Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <div className="mb-4">
-                    <p className="text-sm font-medium text-gray-500">Status</p>
-                    <p className="text-base">Etched</p>
-                    <p className="text-sm text-gray-500">Bitcoin Rune representing the OTORI Vision Token</p>
-                    <p className="text-sm text-gray-600 mt-1">Rune ID: {navData?.tokenDistribution?.runeId || '240249:101'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Initial Supply</p>
-                    <p className="text-base">{navData?.tokenDistribution?.totalSupply?.toLocaleString() || '2,100,000'}</p>
-                  </div>
-                </div>
-                <div>
-                  <div className="mb-4">
-                    <p className="text-sm font-medium text-gray-500">Current Supply</p>
-                    <p className="text-base">{navData?.tokenDistribution?.totalSupply?.toLocaleString() || '2,100,000'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Distribution</p>
-                    <p className="text-base">
-                      {navData?.tokenDistribution?.distributed?.toLocaleString() || '0'} tokens 
-                      ({navData?.tokenDistribution ? 
-                        ((navData.tokenDistribution.distributed / navData.tokenDistribution.totalSupply) * 100).toFixed(2) 
-                        : '0'}%)
-                    </p>
-                    <p className="text-sm font-medium text-gray-500 mt-2">Distribution Events</p>
-                    <p className="text-base">{navData?.tokenDistribution?.distributionEvents?.length || '0'}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Admin View Content */}
-            <div className="p-6">
-              {activeView === AdminView.POSITIONS && (
-                <PositionManagement onActionRequiringMultiSig={handleActionRequiringMultiSig} />
-              )}
-              
-              {activeView === AdminView.MINT && (
-                <TokenMinting onActionRequiringMultiSig={handleActionRequiringMultiSig} />
-              )}
-              
-              {activeView === AdminView.RUNE_MINT && (
-                <RuneMinting />
-              )}
-              
-              {activeView === AdminView.HISTORY && (
-                <TransactionHistory />
-              )}
-            </div>
-            
-            {/* Multi-Sig Modal */}
-            {isMultiSigModalOpen && pendingAction && (
-              <MultiSigApproval
-                isOpen={isMultiSigModalOpen}
-                onClose={handleMultiSigCancel}
-                onComplete={handleMultiSigComplete}
-                action={pendingAction}
-              />
-            )}
-          </div>
-        </>
-      ) : (
-        <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
-          <div className="flex">
-            <div className="ml-3">
-              <p className="text-sm text-red-700">
-                Access denied. This dashboard is only accessible to admin wallets.
-              </p>
-              {address && (
-                <p className="text-sm text-red-700 mt-2">
-                  Your current address "{address}" is not in the admin whitelist.
-                </p>
-              )}
-              {!address && (
-                <p className="text-sm text-red-700 mt-2">
-                  You need to connect a wallet to access the admin dashboard.
-                </p>
-              )}
-            </div>
+            {/* Wallet Connection */}
+            <WalletConnector 
+              onConnect={handleConnectWallet}
+              onDisconnect={handleDisconnectWallet}
+              connectedAddress={connectedAddress || undefined}
+            />
           </div>
         </div>
-      )}
+      </div>
+      
+      <div className="p-6">
+        {/* Debug Info - Only shown in development mode and much more compact */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mb-2 p-2 bg-gray-100 rounded text-xs">
+            <details>
+              <summary className="cursor-pointer text-gray-600">Debug Info</summary>
+              <div className="mt-1 p-1">
+                <p>Admin: {String(isAdmin)} | Address: {address || 'None'} | Network: {network || 'Unknown'}</p>
+                {!address && (
+                  <div className="flex space-x-2 mt-1">
+                    <button 
+                      onClick={() => connect(XVERSE)}
+                      className="text-xs px-2 py-1 bg-blue-500 text-white rounded"
+                    >
+                      Connect Xverse
+                    </button>
+                    <button 
+                      onClick={() => connect(UNISAT)}
+                      className="text-xs px-2 py-1 bg-orange-500 text-white rounded"
+                    >
+                      Connect Unisat
+                    </button>
+                  </div>
+                )}
+                {address && (
+                  <button 
+                    onClick={handleDisconnectWallet}
+                    className="text-xs px-2 py-1 bg-gray-500 text-white rounded mt-1"
+                  >
+                    Disconnect
+                  </button>
+                )}
+              </div>
+            </details>
+          </div>
+        )}
+        
+        {/* Changed from hardcoded "true" to use isAdmin state */}
+        {isAdmin ? (
+          <>
+            <div className="border-b border-gray-200 pb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Admin Dashboard</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Manage OVT Fund operations and view system metrics
+              </p>
+            </div>
+            
+            {/* Admin Navigation */}
+            <div className="border-b border-gray-200 mt-4">
+              <nav className="flex py-2 space-x-4 overflow-x-auto">
+                <button
+                  onClick={() => setActiveView(AdminView.POSITIONS)}
+                  className={`px-3 py-2 text-sm font-medium rounded-md ${
+                    activeView === AdminView.POSITIONS
+                      ? 'bg-primary text-white'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Position Management
+                </button>
+                <button
+                  onClick={() => setActiveView(AdminView.MINT)}
+                  className={`px-3 py-2 text-sm font-medium rounded-md ${
+                    activeView === AdminView.MINT
+                      ? 'bg-primary text-white'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Token Minting
+                </button>
+                <button
+                  onClick={() => setActiveView(AdminView.RUNE_MINT)}
+                  className={`px-3 py-2 text-sm font-medium rounded-md ${
+                    activeView === AdminView.RUNE_MINT
+                      ? 'bg-primary text-white'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Rune Minting
+                </button>
+                <button
+                  onClick={() => setActiveView(AdminView.HISTORY)}
+                  className={`px-3 py-2 text-sm font-medium rounded-md ${
+                    activeView === AdminView.HISTORY
+                      ? 'bg-primary text-white'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Transaction History
+                </button>
+              </nav>
+            </div>
+            
+            <div className="mt-6">
+              {/* Fund Metrics Summary */}
+              <div className="p-6 bg-white border border-primary rounded-lg shadow-sm mb-6">
+                <h3 className="text-lg font-medium text-primary mb-4">OVT Fund Metrics</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-white border border-primary border-opacity-20 p-4 rounded-lg">
+                    <p className="text-sm text-primary">Total Value</p>
+                    <p className="text-xl font-bold text-primary">{totalPortfolioValue}</p>
+                  </div>
+                  <div className="bg-white border border-primary border-opacity-20 p-4 rounded-lg">
+                    <p className="text-sm text-primary">Change</p>
+                    <p className={`text-xl font-bold ${isPositive ? 'text-success' : 'text-error'}`}>
+                      {isPositive ? '+' : ''}{overallChangePercentage}%
+                    </p>
+                  </div>
+                  <div className="bg-white border border-primary border-opacity-20 p-4 rounded-lg">
+                    <p className="text-sm text-primary">Data Source</p>
+                    <p className="text-xl font-bold text-primary">
+                      {portfolioDataSource.isMock ? "Simulated Data" : "Real Contract Data"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* OVT Rune Information */}
+              <div className="p-6 bg-white border border-primary rounded-lg shadow-sm mb-6">
+                <h3 className="text-lg font-medium text-primary mb-4">OVT Rune Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <div className="mb-4">
+                      <p className="text-sm font-medium text-primary">Status</p>
+                      <p className="text-base text-primary">Etched</p>
+                      <p className="text-sm text-primary opacity-75">Bitcoin Rune representing the OTORI Vision Token</p>
+                      <p className="text-sm text-primary mt-1">Rune ID: {navData?.tokenDistribution?.runeId || '240249:101'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-primary">Initial Supply</p>
+                      <p className="text-base text-primary">{navData?.tokenDistribution?.totalSupply?.toLocaleString() || '2,100,000'}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mb-4">
+                      <p className="text-sm font-medium text-primary">Current Supply</p>
+                      <p className="text-base text-primary">{navData?.tokenDistribution?.totalSupply?.toLocaleString() || '2,100,000'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-primary">Distribution</p>
+                      <p className="text-base text-primary">
+                        {navData?.tokenDistribution?.distributed?.toLocaleString() || '0'} tokens 
+                        ({navData?.tokenDistribution ? 
+                          ((navData.tokenDistribution.distributed / navData.tokenDistribution.totalSupply) * 100).toFixed(2) 
+                          : '0'}%)
+                      </p>
+                      <p className="text-sm font-medium text-primary mt-2">Distribution Events</p>
+                      <p className="text-base text-primary">1</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Admin View Content */}
+              <div className="p-6 bg-white border border-primary rounded-lg shadow-sm">
+                {activeView === AdminView.POSITIONS && (
+                  <PositionManagement onActionRequiringMultiSig={handleActionRequiringMultiSig} />
+                )}
+                
+                {activeView === AdminView.MINT && (
+                  <TokenMinting onActionRequiringMultiSig={handleActionRequiringMultiSig} />
+                )}
+                
+                {activeView === AdminView.RUNE_MINT && (
+                  <RuneMinting />
+                )}
+                
+                {activeView === AdminView.HISTORY && (
+                  <TransactionHistory />
+                )}
+              </div>
+              
+              {/* Multi-Sig Modal */}
+              {isMultiSigModalOpen && pendingAction && (
+                <MultiSigApproval
+                  isOpen={isMultiSigModalOpen}
+                  onClose={handleMultiSigCancel}
+                  onComplete={handleMultiSigComplete}
+                  action={pendingAction}
+                />
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
+            <div className="flex">
+              <div className="ml-3">
+                <p className="text-sm text-red-700">
+                  Access denied. This dashboard is only accessible to admin wallets.
+                </p>
+                {address && (
+                  <p className="text-sm text-red-700 mt-2">
+                    Your current address "{address}" is not in the admin whitelist.
+                  </p>
+                )}
+                {!address && (
+                  <p className="text-sm text-red-700 mt-2">
+                    You need to connect a wallet to access the admin dashboard.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 } 

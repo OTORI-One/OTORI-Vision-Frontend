@@ -1,3 +1,21 @@
+/**
+ * LEGACY HOOK - Maintained for backward compatibility
+ * 
+ * This hook is being maintained while we transition to the more focused, specialized hooks:
+ * 
+ * 1. useNAV - Handles all NAV-related functionality
+ * 2. useCurrencyToggle - Handles currency formatting and toggling
+ * 3. usePortfolio - Manages portfolio data operations
+ * 
+ * The refactoring approach is to:
+ * 1. Keep this legacy hook working to avoid breaking existing components
+ * 2. Gradually update components to use the new specialized hooks
+ * 3. Once all components are migrated, this hook can be deprecated
+ * 
+ * This follows the Strangler Fig Pattern - building new functionality around legacy code
+ * and gradually replacing it while maintaining continuous operation.
+ */
+
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { ArchClient } from '../lib/archClient';
 import { RuneClient, OVT_RUNE_ID, OVT_FALLBACK_DISTRIBUTED } from '../lib/runeClient';
@@ -545,7 +563,18 @@ export function useOVTClient() {
   // Fetch NAV data on mount and when dependencies change
   useEffect(() => {
     if (baseCurrency) {
+      // Initial fetch
       fetchNAV(baseCurrency);
+      
+      // Set up automatic updates
+      const intervalId = setInterval(() => fetchNAV(baseCurrency), 30000);
+      
+      // Clean up on component unmount
+      return () => {
+        if (intervalId) {
+          clearInterval(intervalId);
+        }
+      };
     }
   }, [fetchNAV, baseCurrency, lastPriceUpdateTime]);
 

@@ -1,189 +1,188 @@
-import { Fragment, useMemo, useEffect } from 'react';
-import { Dialog, Transition } from '@headlessui/react';
-import { XMarkIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
-import { useOVTClient } from '../src/hooks/useOVTClient';
-import { formatTokenAmount, formatValue } from '../src/lib/formatting';
+import React from 'react';
+import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline';
+import { useCurrencyToggle, Currency } from '../src/hooks/useCurrencyToggle';
+
+export interface ChartDataItem {
+  name: string;
+  initialInvestment: number;
+  currentValue: number;
+  growth: number;
+  description?: string;
+  tokenAmount: number;
+  pricePerToken: number;
+  formatted?: {
+    initialInvestment: string;
+    currentValue: string;
+    growth: string;
+    pricePerToken: string;
+  };
+}
 
 interface TokenExplorerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  tokenData: {
-    name: string;
-    description: string;
-    initial: number;
-    current: number;
-    change: number;
-    address: string;
-    holdings: string;
-    totalValue: number;
-    transactions: Array<{
-      date: string;
-      type: 'buy' | 'sell';
-      amount: string;
-      price: number;
-    }>;
-  };
-  baseCurrency?: 'usd' | 'btc';
+  token: ChartDataItem;
 }
 
-export default function TokenExplorerModal({ isOpen, onClose, tokenData, baseCurrency = 'usd' }: TokenExplorerModalProps) {
-  const { btcPrice } = useOVTClient();
+export default function TokenExplorerModal({ isOpen, onClose, token }: TokenExplorerModalProps) {
+  const { formatValue, currency } = useCurrencyToggle();
   
-  // Memoize all calculations to prevent unnecessary re-renders
-  const {
-    profitLoss,
-    profitLossPercentage,
-    formattedInitial,
-    formattedCurrent,
-    formattedProfitLoss,
-    formattedTotalValue
-  } = useMemo(() => {
-    const profitLoss = tokenData.current - tokenData.initial;
-    const profitLossPercentage = ((profitLoss / tokenData.initial) * 100).toFixed(2);
-
-    return {
-      profitLoss,
-      profitLossPercentage,
-      formattedInitial: formatValue(tokenData.initial, baseCurrency, btcPrice),
-      formattedCurrent: formatValue(tokenData.current, baseCurrency, btcPrice),
-      formattedProfitLoss: formatValue(Math.abs(profitLoss), baseCurrency, btcPrice),
-      formattedTotalValue: formatValue(tokenData.totalValue, baseCurrency, btcPrice)
-    };
-  }, [tokenData, baseCurrency, btcPrice]);
-
+  if (!isOpen || !token) return null;
+  
+  // Get data from token
+  const { 
+    name, 
+    description, 
+    initialInvestment, 
+    currentValue, 
+    growth, 
+    tokenAmount, 
+    pricePerToken,
+    formatted
+  } = token;
+  
+  // Determine if growth is positive
+  const isPositive = growth >= 0;
+  
+  // Format the growth percentage
+  const formattedGrowthPercentage = `${isPositive ? '+' : ''}${growth.toFixed(2)}%`;
+  
+  // Create a mock transaction for display
+  const mockTransaction = {
+    type: 'Purchase',
+    date: new Date().toLocaleDateString(),
+    amount: tokenAmount,
+    price: pricePerToken,
+    total: initialInvestment
+  };
+  
   return (
-    <Transition.Root show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={onClose}>
-        <Transition.Child
-          as={Fragment}
-          enter="ease-out duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="ease-in duration-200"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
-        </Transition.Child>
-
-        <div className="fixed inset-0 z-10 overflow-y-auto">
-          <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-              enterTo="opacity-100 translate-y-0 sm:scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 translate-y-0 sm:scale-100"
-              leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+    <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+      <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        {/* Background overlay */}
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={onClose}></div>
+        
+        {/* Modal panel */}
+        <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+          {/* Modal header */}
+          <div className="flex justify-between items-start">
+            <h3 className="text-xl font-semibold text-gray-900" id="modal-title">
+              {name}
+            </h3>
+            <button 
+              type="button" 
+              className="rounded-md text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
+              onClick={onClose}
             >
-              <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl sm:p-6">
-                <div className="absolute right-0 top-0 pr-4 pt-4">
-                  <button
-                    type="button"
-                    className="rounded-md bg-white text-gray-400 hover:text-gray-500"
-                    onClick={onClose}
-                  >
-                    <span className="sr-only">Close</span>
-                    <XMarkIcon className="h-6 w-6" aria-hidden="true" />
-                  </button>
-                </div>
-
-                <div className="sm:flex sm:items-start">
-                  <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                    <Dialog.Title as="h3" className="text-2xl font-semibold leading-6 text-gray-900">
-                      {tokenData.name}
-                    </Dialog.Title>
-                    <p className="mt-2 text-sm text-gray-500">{tokenData.description}</p>
-
-                    {/* Portfolio Address */}
-                    <div className="mt-6 bg-gray-50 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-500">Portfolio Address</span>
-                        <div className="flex items-center space-x-2">
-                          <code className="text-sm bg-gray-100 px-2 py-1 rounded">
-                            {tokenData.address}
-                          </code>
-                          <button className="text-blue-600 hover:text-blue-800">
-                            <ArrowTopRightOnSquareIcon className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Holdings and P/L */}
-                    <div className="mt-4 grid grid-cols-2 gap-4">
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <div className="space-y-2">
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-500">Total Value</h4>
-                            <p className="text-xl font-semibold">{formattedTotalValue}</p>
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-500">Total Holdings</h4>
-                            <p className="text-xl font-semibold">{formatTokenAmount(tokenData.holdings)}</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="text-sm font-medium text-gray-500">Profit/Loss</h4>
-                        <p className={`mt-1 text-xl font-semibold ${profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {profitLoss >= 0 ? '+' : ''}{profitLossPercentage}%
-                        </p>
-                        <p className={`text-sm ${profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {profitLoss >= 0 ? '+' : '-'}{formattedProfitLoss}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Transaction History */}
-                    <div className="mt-6">
-                      <h4 className="text-sm font-medium text-gray-500 mb-2">Transaction History</h4>
-                      <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
-                        <table className="min-w-full divide-y divide-gray-300">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Date</th>
-                              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Type</th>
-                              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Amount</th>
-                              <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Price</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-200 bg-white">
-                            {tokenData.transactions.map((transaction, idx) => {
-                              // Pre-compute the formatted price
-                              const formattedTransactionPrice = formatValue(transaction.price, baseCurrency, btcPrice);
-                              
-                              return (
-                                <tr key={idx}>
-                                  <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-900">{transaction.date}</td>
-                                  <td className="whitespace-nowrap px-3 py-4 text-sm">
-                                    <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                                      transaction.type === 'buy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                    }`}>
-                                      {transaction.type}
-                                    </span>
-                                  </td>
-                                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                    {formatTokenAmount(transaction.amount)}
-                                  </td>
-                                  <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                    {formattedTransactionPrice}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </Dialog.Panel>
-            </Transition.Child>
+              <span className="sr-only">Close</span>
+              <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          {description && (
+            <p className="mt-2 text-sm text-gray-500">
+              {description}
+            </p>
+          )}
+          
+          {/* Value information */}
+          <div className="mt-4 bg-gray-50 p-4 rounded-lg">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-600">Initial Investment:</span>
+              <span className="font-medium">{formatted?.initialInvestment || formatValue(initialInvestment)}</span>
+            </div>
+            
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-600">Current Value:</span>
+              <span className="font-medium">{formatted?.currentValue || formatValue(currentValue)}</span>
+            </div>
+            
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-600">Change:</span>
+              <span className={`flex items-center font-medium ${isPositive ? 'text-success' : 'text-error'}`}>
+                {isPositive ? (
+                  <ArrowUpIcon className="h-4 w-4 mr-1" />
+                ) : (
+                  <ArrowDownIcon className="h-4 w-4 mr-1" />
+                )}
+                {formatted?.growth || formattedGrowthPercentage}
+              </span>
+            </div>
+          </div>
+          
+          {/* Token details */}
+          <div className="mt-4">
+            <h4 className="text-md font-medium mb-2">Token Details</h4>
+            
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm text-gray-600">Holdings:</span>
+                <span className="font-medium">{tokenAmount.toLocaleString()} tokens</span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Price per Token:</span>
+                <span className="font-medium">{formatted?.pricePerToken || formatValue(pricePerToken)}</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Transaction history */}
+          <div className="mt-4">
+            <h4 className="text-md font-medium mb-2">Transaction History</h4>
+            
+            <div className="bg-gray-50 rounded-lg overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Price
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  <tr>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {mockTransaction.type}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                      {mockTransaction.date}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                      {mockTransaction.amount.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                      {formatValue(mockTransaction.price)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          {/* Close button */}
+          <div className="mt-6 sm:mt-8 sm:flex sm:justify-end">
+            <button
+              type="button"
+              className="w-full sm:w-auto px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
+              onClick={onClose}
+            >
+              Close
+            </button>
           </div>
         </div>
-      </Dialog>
-    </Transition.Root>
+      </div>
+    </div>
   );
 } 

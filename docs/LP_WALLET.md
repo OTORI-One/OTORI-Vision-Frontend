@@ -5,6 +5,7 @@ This document explains the LP wallet functionality, how to use it, and how to di
 ## Overview
 
 The Liquidity Pool (LP) wallet is a specialized wallet that holds Runes tokens for simulating trading activities. It maintains a balance of both OTORI•VISION•TOKEN (OVT) and testnet Bitcoin to facilitate trades.
+**current address:** 'tb1p3vn6wc0dlud3tvckv95datu3stq4qycz7vj9mzpclfkrv9rh8jqsjrw38f'
 
 Key features:
 - Holds a designated portion (typically 10%) of the total OVT supply

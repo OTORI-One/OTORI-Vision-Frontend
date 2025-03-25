@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import Head from 'next/head';
 import { ArrowUpIcon, CurrencyDollarIcon, CircleStackIcon } from '@heroicons/react/24/outline';
 import WalletConnector from '../components/WalletConnector';
-import NAVVisualization from '../components/NAVVisualization';
+import PortfolioChart from '../components/PortfolioChart';
 import PriceChart from '../components/PriceChart';
 import ChartToggle from '../components/ChartToggle';
 import { useOVTClient, SATS_PER_BTC } from '../src/hooks/useOVTClient';
@@ -12,6 +12,13 @@ import { useLaserEyes } from '@omnisat/lasereyes';
 import Layout from '../components/Layout';
 import { useTradingModule } from '../src/hooks/useTradingModule';
 import { isAdminWallet } from '../src/utils/adminUtils';
+import { getGlobalNAVReference, updateGlobalNAVReference } from '../src/utils/priceMovement';
+import CurrencyToggle from '../components/CurrencyToggle';
+import NAVDisplay from '../components/NAVDisplay';
+import useNAV from '../src/hooks/useNAV';
+import { useCurrencyToggle } from '../src/hooks/useCurrencyToggle';
+import { usePortfolio } from '../src/hooks/usePortfolio';
+import { formatValue } from '../src/lib/formatting';
 
 export default function Dashboard() {
   const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
@@ -21,6 +28,15 @@ export default function Dashboard() {
   const [networkError, setNetworkError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [animatingNav, setAnimatingNav] = useState(false);
+  const previousNavRef = useRef<number>(0);
+  const [formattedOvtPrice, setFormattedOvtPrice] = useState<string>(''); // For hydration safety
+  
+  // Use the new centralized NAV hook
+  const { nav, refreshNAV } = useNAV();
+  
+  // Use the currency toggle hook
+  const { currency, toggleCurrency, formatValue: formatCurrencyValue } = useCurrencyToggle();
   
   const { 
     isLoading, 
@@ -28,91 +44,139 @@ export default function Dashboard() {
     navData, 
     formatValue,
     baseCurrency,
-    setBaseCurrency
+    setBaseCurrency,
+    fetchNAV,
+    ovtPrice: clientOvtPrice,
+    formattedOvtPrice: clientFormattedOvtPrice
   } = useOVTClient();
   const { price: btcPrice } = useBitcoinPrice();
-  const { network } = useLaserEyes();
+  const { network, address } = useLaserEyes();
   
   // Use the trading hook
   const { buyOVT, sellOVT, getMarketPrice } = useTradingModule();
 
-  // State to track if the connected wallet is an admin
+  // State for admin status
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   
-  // Check if wallet is admin
+  // Use the portfolio hook instead of managing state directly
+  const { positions } = usePortfolio();
+  
+  // Default starting price in SATs (for server-side rendering)
+  const DEFAULT_OVT_PRICE = 300;
+  
+  // Update wallet connection status when address changes
   useEffect(() => {
-    if (connectedAddress) {
-      const adminStatus = isAdminWallet(connectedAddress);
-      console.log('Index page - Connected address is admin?', adminStatus);
-      setIsAdmin(adminStatus);
+    if (network) {
+      // Store the wallet address, not the network name
+      const walletAddress = address || network;
+      setConnectedAddress(walletAddress);
+      // Check if the connected wallet is an admin wallet
+      setIsAdmin(isAdminWallet(walletAddress));
     } else {
+      setConnectedAddress(null);
       setIsAdmin(false);
     }
-  }, [connectedAddress]);
-
-  // Calculate OVT price based on NAV
-  const ovtPrice = useMemo(() => {
-    if (!navData || !navData.totalValue) return 0;
-    
-    // Use the raw sats value directly from navData instead of parsing the formatted string
-    const satsValue = navData.totalValueSats;
-    console.log('NAV in sats:', satsValue);
-    
-    // Get distributed token count from navData
-    const distributedTokens = navData.tokenDistribution?.distributed || 0;
-    console.log('Distributed tokens:', distributedTokens);
-    
-    // Calculate price per token in sats - if no tokens are distributed yet, return 0 to prevent division by zero
-    const pricePerOVT = distributedTokens > 0 ? Math.floor(satsValue / distributedTokens) : 0;
-    console.log('Calculated price per OVT:', pricePerOVT, 'sats');
-    
-    return pricePerOVT;
-  }, [navData]);
-
-  // Use the NAV value directly from navData
-  const formattedNAV = useMemo(() => {
-    if (!navData || !navData.totalValue) return "Loading...";
-    return navData.totalValue;
-  }, [navData]);
-
-  // Format currency values
-  const formatCurrency = (value: number) => {
-    console.log(`Dashboard formatting ${value} with currency ${baseCurrency}`);
-    return formatValue(value);
-  };
-
-  // Add effect to track currency changes
-  useEffect(() => {
-    console.log('Dashboard: baseCurrency changed to', baseCurrency);
-  }, [baseCurrency]);
+  }, [network, address]);
   
-  // Listen for global currency changes
+  // Periodically refresh NAV data
   useEffect(() => {
-    const handleCurrencyChange = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      console.log('Dashboard: Detected currency change event:', customEvent.detail);
-      // Force re-render by updating a state variable
-      setActiveChart(prev => prev); // This will trigger a re-render without changing the value
-    };
+    // Get initial NAV data
+    refreshNAV();
     
-    window.addEventListener('currency-changed', handleCurrencyChange);
+    // Set up interval for refreshing
+    const intervalId = setInterval(() => {
+      refreshNAV();
+    }, 30000); // Refresh every 30 seconds
+    
     return () => {
-      window.removeEventListener('currency-changed', handleCurrencyChange);
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
     };
-  }, []);
+  }, [refreshNAV]);
+  
+  // Sync currency toggle with OVT client
+  useEffect(() => {
+    if (baseCurrency && baseCurrency !== currency) {
+      setBaseCurrency(currency);
+    }
+  }, [currency, baseCurrency, setBaseCurrency]);
+  
+  // Legacy code that gets NAV data from useOVTClient
+  // This will be kept for backward compatibility until fully migrated
+  useEffect(() => {
+    // Fetch NAV data initially
+    fetchNAV().catch(err => {
+      console.error('Failed to fetch NAV data:', err);
+      setNetworkError('Failed to fetch NAV data. Using cached data.');
+    });
+    
+    // Set up interval to refresh NAV data
+    const refreshIntervalId = setInterval(() => {
+      fetchNAV().catch(err => {
+        console.error('Failed to refresh NAV data:', err);
+        // Don't show error for refresh failures
+      });
+    }, 60000); // Every 60 seconds
+    
+    return () => {
+      if (refreshIntervalId) {
+        clearInterval(refreshIntervalId);
+      }
+    };
+  }, [fetchNAV]);
 
-  // Handle wallet connection
+  // Format OVT price using the centralized currency formatter - CLIENT SIDE ONLY
+  useEffect(() => {
+    // Start with a reasonable default OVT price (in sats)
+    const DEFAULT_OVT_PRICE_SATS = 300;
+    let priceToDisplay = DEFAULT_OVT_PRICE_SATS;
+    
+    // Try to get the price from portfolio data
+    if (positions && positions.length > 0) {
+      // Calculate the average price per token from all positions
+      let totalTokenAmount = 0;
+      let weightedPriceSum = 0;
+      
+      positions.forEach(position => {
+        if (position.tokenAmount > 0 && position.pricePerToken > 0) {
+          totalTokenAmount += position.tokenAmount;
+          weightedPriceSum += position.pricePerToken * position.tokenAmount;
+        }
+      });
+      
+      if (totalTokenAmount > 0) {
+        priceToDisplay = weightedPriceSum / totalTokenAmount;
+      } else {
+        // Fallback to the first position with valid price if any
+        const posWithPrice = positions.find(p => p.pricePerToken > 0);
+        if (posWithPrice) {
+          priceToDisplay = posWithPrice.pricePerToken;
+        }
+      }
+    } 
+    // Only if no other sources are available, try nav or client OVT price
+    else if (nav && nav.pricePerToken && nav.pricePerToken > 0 && nav.pricePerToken < 1000000) {
+      priceToDisplay = nav.pricePerToken;
+    } else if (clientOvtPrice && clientOvtPrice > 0 && clientOvtPrice < 1000000) {
+      priceToDisplay = clientOvtPrice;
+    }
+    
+    // Format the price for display
+    setFormattedOvtPrice(formatCurrencyValue(priceToDisplay));
+  }, [formatCurrencyValue, nav, clientOvtPrice, positions]);
+
   const handleConnectWallet = (address: string) => {
     setConnectedAddress(address);
-    console.log('Connected wallet address:', address);
+    setIsAdmin(isAdminWallet(address));
   };
   
   const handleDisconnectWallet = () => {
     setConnectedAddress(null);
-    console.log('Wallet disconnected');
+    setIsAdmin(false);
   };
-
-  // Handle buy action
+  
+  // Handle buy OVT operation
   const handleBuy = async () => {
     if (!buyAmount || parseFloat(buyAmount) <= 0) return;
     
@@ -124,16 +188,23 @@ export default function Dashboard() {
       const result = await buyOVT(amount);
       
       setBuyAmount('');
-      setSuccessMessage(`Successfully purchased ${amount} OVT tokens!`);
+      setSuccessMessage(`Successfully purchased ${amount} OVT!`);
+      
+      // Simulate a positive impact on the global NAV (0.1-0.5% increase)
+      const positiveBump = 0.001 + (Math.random() * 0.004);
+      updateGlobalNAVReference(positiveBump);
+      
+      // Refresh NAV data
+      fetchNAV();
     } catch (error) {
-      console.error('Error buying tokens:', error);
+      // Reduced error logging - just set the user-facing error
       setNetworkError(error instanceof Error ? error.message : 'Error processing your purchase');
     } finally {
       setIsSubmitting(false);
     }
   };
   
-  // Handle sell action
+  // Handle sell OVT operation
   const handleSell = async () => {
     if (!sellAmount || parseFloat(sellAmount) <= 0) return;
     
@@ -145,9 +216,16 @@ export default function Dashboard() {
       const result = await sellOVT(amount);
       
       setSellAmount('');
-      setSuccessMessage(`Successfully sold ${amount} OVT tokens!`);
+      setSuccessMessage(`Successfully sold ${amount} OVT!`);
+      
+      // Simulate a small negative impact on the global NAV (0.05-0.2% decrease)
+      const negativeBump = -0.0005 - (Math.random() * 0.0015);
+      updateGlobalNAVReference(negativeBump);
+      
+      // Refresh NAV data
+      fetchNAV();
     } catch (error) {
-      console.error('Error selling tokens:', error);
+      // Reduced error logging - just set the user-facing error
       setNetworkError(error instanceof Error ? error.message : 'Error processing your sale');
     } finally {
       setIsSubmitting(false);
@@ -155,157 +233,175 @@ export default function Dashboard() {
   };
 
   return (
-    <Layout title="Dashboard">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {successMessage && (
-          <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
-            {successMessage}
-          </div>
-        )}
-        
-        {networkError && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-            {networkError}
-          </div>
-        )}
-        
-        {/* Main content */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-          {/* NAV Card */}
-          <div className="bg-white p-4 rounded-lg shadow col-span-1 lg:col-span-8">
-            <h2 className="text-lg font-medium text-gray-900">Net Asset Value</h2>
-            <div className="flex items-center mt-1">
-              <p className="text-3xl font-bold currency-dependent" data-currency={baseCurrency}>{formattedNAV}</p>
-              {navData && (
-                <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  parseFloat(navData.changePercentage) >= 0 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-red-100 text-red-800'
-                }`}>
-                  {navData.changePercentage}
-                </span>
-              )}
+    <Layout>
+      <Head>
+        <title>OTORI Vision - Dashboard</title>
+        <meta name="description" content="OTORI Vision Dashboard - Bitcoin VC Fund" />
+      </Head>
+      
+      <div className="flex flex-col">
+        {/* Top Navigation Bar */}
+        <div className="bg-white border-b border-primary shadow-sm p-2 sm:p-4 mb-6 rounded-lg">
+          <div className="flex flex-col sm:flex-row justify-between items-center">
+            <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-6 w-full sm:w-auto mb-3 sm:mb-0">
+              {/* Logo */}
+              <div className="flex items-center">
+                <img className="h-8 w-auto mr-2" src="/logo.svg" alt="OTORI" />
+                <span className="text-lg font-bold text-primary">OTORI Vision</span>
+              </div>
+              
+              {/* Navigation Links */}
+              <nav className="flex space-x-2 sm:space-x-4 overflow-x-auto pb-2 sm:pb-0 w-full sm:w-auto">
+                <a href="/" className="px-2 sm:px-3 py-2 rounded-md text-sm font-medium bg-primary text-white">
+                  Dashboard
+                </a>
+                <a href="/trade" className="px-2 sm:px-3 py-2 rounded-md text-sm font-medium text-primary hover:bg-primary hover:bg-opacity-10">
+                  Trade
+                </a>
+                <a href="/portfolio" className="px-2 sm:px-3 py-2 rounded-md text-sm font-medium text-primary hover:bg-primary hover:bg-opacity-10">
+                  Portfolio
+                </a>
+                {isAdmin && (
+                  <a href="/admin" className="px-2 sm:px-3 py-2 rounded-md text-sm font-medium text-primary hover:bg-primary hover:bg-opacity-10">
+                    Admin
+                  </a>
+                )}
+              </nav>
+              
+              {/* Centralized NAV Display - Hidden on small screens */}
+              <div className="hidden md:block">
+                <NAVDisplay showChange={true} size="sm" />
+              </div>
             </div>
-            <p className="text-sm text-gray-500 mb-2 currency-dependent" data-currency={baseCurrency}>
-              {baseCurrency === 'btc' ? 'BTC' : 'USD'} value of all assets
-            </p>
             
-            {/* Chart Toggle */}
-            <div className="mt-2">
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              {/* Currency Toggle */}
+              <CurrencyToggle size="sm" />
+              
+              {/* Wallet Connection */}
+              <WalletConnector 
+                onConnect={handleConnectWallet}
+                onDisconnect={handleDisconnectWallet}
+                connectedAddress={connectedAddress || undefined}
+              />
+            </div>
+          </div>
+          
+          {/* NAV Display for mobile */}
+          <div className="md:hidden mt-3 flex justify-center">
+            <NAVDisplay showChange={true} size="sm" />
+          </div>
+        </div>
+        
+        {/* Error Messages */}
+        {networkError && (
+          <div className="bg-white border border-error p-4 mb-4 rounded-lg text-error">
+            <p>{networkError}</p>
+          </div>
+        )}
+        
+        {/* Success Message */}
+        {successMessage && (
+          <div className="bg-white border border-success p-4 mb-4 rounded-lg text-success">
+            <p>{successMessage}</p>
+          </div>
+        )}
+        
+        {/* Main Dashboard Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Chart Section - 2/3 width on large screens */}
+          <div className="lg:col-span-2 bg-white border border-primary rounded-lg shadow-sm p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-primary">Portfolio Performance</h2>
               <ChartToggle 
                 activeChart={activeChart} 
-                onToggle={setActiveChart} 
+                onToggle={(chart: 'price' | 'nav') => setActiveChart(chart)} 
               />
             </div>
             
-            {/* Charts - contained within a fixed height container */}
-            <div className="mt-2 h-[300px] overflow-hidden">
+            <div className="h-80">
               {activeChart === 'nav' ? (
-                <NAVVisualization 
-                  data={navData?.portfolioItems || []} 
-                  totalValue={navData?.totalValue || "0"} 
-                  changePercentage={navData?.changePercentage || "0%"} 
-                  baseCurrency={baseCurrency} 
-                />
+                <PortfolioChart />
               ) : (
-                <PriceChart 
-                  data={[
-                    { name: 'Q1', value: ovtPrice * 0.8 },
-                    { name: 'Q2', value: ovtPrice * 0.9 },
-                    { name: 'Q3', value: ovtPrice * 0.95 },
-                    { name: 'Current', value: ovtPrice }
-                  ]} 
-                  baseCurrency={baseCurrency} 
-                />
+                <PriceChart />
               )}
             </div>
           </div>
           
-          {/* Trading Cards - on the right side */}
-          <div className="lg:col-span-4 grid grid-cols-1 gap-4">
-            {/* Buy OVT Card */}
-            <div className="bg-white p-4 rounded-lg shadow">
-              <h2 className="text-lg font-semibold text-gray-700">Buy OVT</h2>
-              <div className="mt-2">
-                <p className="text-2xl font-bold currency-dependent" data-currency={baseCurrency}>{formatCurrency(ovtPrice)}</p>
-                <p className="text-sm text-gray-500">per OVT</p>
-                <div className="mt-3 space-y-3">
-                  <input
-                    type="number"
-                    value={buyAmount}
-                    onChange={(e) => setBuyAmount(e.target.value)}
-                    placeholder="Enter amount"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                    min="0"
-                    step="1"
-                    disabled={!connectedAddress}
-                  />
-                  <button 
-                    disabled={isLoading || isSubmitting || !buyAmount || !connectedAddress}
-                    onClick={handleBuy}
-                    className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-                  >
-                    {!connectedAddress ? 'Connect Wallet to Buy' : isSubmitting ? 'Processing...' : 'Buy OVT'}
-                  </button>
-                  <div className="text-xs text-gray-500 text-right">
-                    <a href="/trade" className="text-blue-600 hover:underline">Advanced trading options →</a>
-                  </div>
+          {/* Trading Panel & Info - 1/3 width on large screens */}
+          <div className="space-y-6">
+            {/* Token Price Card */}
+            <div className="bg-white border border-primary rounded-lg shadow-sm p-4">
+              <h2 className="text-xl font-semibold text-primary mb-4">OVT Price</h2>
+              
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-primary">Current Price:</span>
+                  <span className="text-primary font-medium text-lg">
+                    {formattedOvtPrice || formatCurrencyValue(DEFAULT_OVT_PRICE)}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-primary">24h Change:</span>
+                  <span className={`font-medium ${nav.changePercentage >= 0 ? 'text-success' : 'text-error'}`}>
+                    {nav.changePercentage >= 0 ? '+' : ''}{nav.changePercentage.toFixed(2)}%
+                  </span>
                 </div>
               </div>
             </div>
             
-            {/* Sell OVT Card */}
-            <div className="bg-white p-4 rounded-lg shadow">
-              <h2 className="text-lg font-semibold text-gray-700">Sell OVT</h2>
-              <div className="mt-2">
-                <p className="text-2xl font-bold currency-dependent" data-currency={baseCurrency}>{formatCurrency(ovtPrice)}</p>
-                <p className="text-sm text-gray-500">per OVT</p>
-                <div className="mt-3 space-y-3">
-                  <input
-                    type="number"
-                    value={sellAmount}
-                    onChange={(e) => setSellAmount(e.target.value)}
-                    placeholder="Enter amount"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                    min="0"
-                    step="1"
-                    disabled={!connectedAddress}
-                  />
-                  <button 
-                    disabled={isLoading || isSubmitting || !sellAmount || !connectedAddress}
-                    onClick={handleSell}
-                    className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-                  >
-                    {!connectedAddress ? 'Connect Wallet to Sell' : isSubmitting ? 'Processing...' : 'Sell OVT'}
-                  </button>
-                  <div className="text-xs text-gray-500 text-right">
-                    <a href="/trade" className="text-blue-600 hover:underline">Advanced trading options →</a>
+            {/* Trading Panel - Only show if wallet is connected */}
+            {connectedAddress && (
+              <div className="bg-white border border-primary rounded-lg shadow-sm p-4">
+                <h2 className="text-xl font-semibold text-primary mb-4">Trade OVT</h2>
+                
+                {/* Buy OVT Form */}
+                <div className="mb-4">
+                  <label className="block text-primary mb-2">Buy OVT</label>
+                  <div className="flex space-x-2">
+                    <input
+                      type="number"
+                      value={buyAmount}
+                      onChange={(e) => setBuyAmount(e.target.value)}
+                      className="flex-grow bg-white border border-primary border-opacity-20 text-primary rounded p-2"
+                      placeholder="Amount"
+                      disabled={isSubmitting}
+                    />
+                    <button
+                      onClick={handleBuy}
+                      disabled={isSubmitting || !buyAmount}
+                      className="bg-success hover:bg-success/80 text-white rounded px-4 py-2 disabled:opacity-50"
+                    >
+                      Buy
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Sell OVT Form */}
+                <div>
+                  <label className="block text-primary mb-2">Sell OVT</label>
+                  <div className="flex space-x-2">
+                    <input
+                      type="number"
+                      value={sellAmount}
+                      onChange={(e) => setSellAmount(e.target.value)}
+                      className="flex-grow bg-white border border-primary border-opacity-20 text-primary rounded p-2"
+                      placeholder="Amount"
+                      disabled={isSubmitting}
+                    />
+                    <button
+                      onClick={handleSell}
+                      disabled={isSubmitting || !sellAmount}
+                      className="bg-error hover:bg-error/80 text-white rounded px-4 py-2 disabled:opacity-50"
+                    >
+                      Sell
+                    </button>
                   </div>
                 </div>
               </div>
-            </div>
-            
-            {/* Portfolio Summary */}
-            <div className="bg-white p-4 rounded-lg shadow">
-              <h2 className="text-lg font-semibold text-gray-700">Your Portfolio</h2>
-              <p className="text-sm text-gray-500 mt-2">View your complete portfolio and trading history</p>
-              <div className="mt-3">
-                <a 
-                  href="/portfolio" 
-                  className="inline-flex items-center w-full justify-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                >
-                  View Portfolio
-                </a>
-              </div>
-            </div>
+            )}
           </div>
-          
-          {/* Admin Dashboard (only shown to connected admin wallets) */}
-          {connectedAddress && isAdmin && (
-            <div className="col-span-1 lg:col-span-12 mt-2">
-              <AdminDashboard />
-            </div>
-          )}
         </div>
       </div>
     </Layout>

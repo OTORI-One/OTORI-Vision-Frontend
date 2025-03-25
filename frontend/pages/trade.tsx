@@ -4,86 +4,135 @@ import TradingInterface from '../components/TradingInterface';
 import { useOVTClient } from '../src/hooks/useOVTClient';
 import { useLaserEyes } from '@omnisat/lasereyes';
 import { getDataSourceIndicator } from '../src/lib/hybridModeUtils';
+import WalletConnector from '../components/WalletConnector';
+import CurrencyToggle from '../components/CurrencyToggle';
+import NAVDisplay from '../components/NAVDisplay';
+import { isAdminWallet } from '../src/utils/adminUtils';
+import { useCurrencyToggle } from '../src/hooks/useCurrencyToggle';
+import { usePortfolio } from '../src/hooks/usePortfolio';
+import dynamic from 'next/dynamic';
+
+// Import components that depend on client-side data with dynamic import and SSR disabled
+const DynamicTradingContent = dynamic(
+  () => import('../components/TradingContent'),
+  { ssr: false }
+);
 
 export default function TradePage() {
-  const [isWalletConnected, setIsWalletConnected] = useState(false);
-  const { baseCurrency } = useOVTClient();
+  // Use hooks
   const { address: walletAddress, network } = useLaserEyes();
+  const { currency } = useCurrencyToggle();
   const isConnected = !!walletAddress;
   
-  // Get authorized wallets from the lasereyes hook
+  // Client-side state
+  const [isMounted, setIsMounted] = useState(false);
+  const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [laserEyesWallets, setLaserEyesWallets] = useState<string[]>([]);
   
   // Get data source indicator for trading
   const tradingDataSource = getDataSourceIndicator('trading');
   
-  // In a real app, this would be fetched from an API or configuration
+  // Mark component as mounted to prevent hydration issues
   useEffect(() => {
-    // For development, we'll allow any connected wallet to trade
-    // In production, you would restrict this to specific wallets
+    setIsMounted(true);
+    
+    // For development, allow any connected wallet to trade
     if (walletAddress) {
       setLaserEyesWallets([walletAddress]);
     }
   }, [walletAddress]);
-
-  // Add this effect to ensure wallet connection state is properly detected
+  
+  // Update wallet connection status when address changes
   useEffect(() => {
-    const updateConnectionStatus = () => {
-      setIsWalletConnected(!!walletAddress);
-    };
-    
-    // Call immediately and also listen for wallet connection events
-    updateConnectionStatus();
-    
-    window.addEventListener('wallet-connected', updateConnectionStatus);
-    return () => {
-      window.removeEventListener('wallet-connected', updateConnectionStatus);
-    };
+    if (walletAddress) {
+      setConnectedAddress(walletAddress);
+      // Check if the connected wallet is an admin wallet
+      setIsAdmin(isAdminWallet(walletAddress));
+    } else {
+      setConnectedAddress(null);
+      setIsAdmin(false);
+    }
   }, [walletAddress]);
+  
+  // Wallet connection handlers
+  const handleConnectWallet = (address: string) => {
+    setConnectedAddress(address);
+    setIsAdmin(isAdminWallet(address));
+  };
+  
+  const handleDisconnectWallet = () => {
+    setConnectedAddress(null);
+    setIsAdmin(false);
+  };
   
   return (
     <Layout title="Trade OVT">
+      {/* Top Navigation Bar */}
+      <div className="bg-white border-b border-primary shadow-sm p-4 mb-6 rounded-lg">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-6">
+            {/* Logo */}
+            <div className="flex items-center">
+              <img className="h-8 w-auto mr-2" src="/logo.svg" alt="OTORI" />
+              <span className="text-lg font-bold text-primary">OTORI Vision</span>
+            </div>
+            
+            {/* Navigation Links */}
+            <nav className="flex space-x-4">
+              <a href="/" className="px-3 py-2 rounded-md text-sm font-medium text-primary hover:bg-primary hover:bg-opacity-10">
+                Dashboard
+              </a>
+              <a href="/trade" className="px-3 py-2 rounded-md text-sm font-medium bg-primary text-white">
+                Trade
+              </a>
+              {isAdmin && (
+                <>
+                  <a href="/portfolio" className="px-3 py-2 rounded-md text-sm font-medium text-primary hover:bg-primary hover:bg-opacity-10">
+                    Portfolio
+                  </a>
+                  <a href="/admin" className="px-3 py-2 rounded-md text-sm font-medium text-primary hover:bg-primary hover:bg-opacity-10">
+                    Admin
+                  </a>
+                </>
+              )}
+            </nav>
+            
+            {/* Centralized NAV Display */}
+            <NAVDisplay showChange={true} size="md" />
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            {/* Currency Toggle */}
+            <CurrencyToggle size="md" />
+            
+            {/* Wallet Connection */}
+            <WalletConnector 
+              onConnect={handleConnectWallet}
+              onDisconnect={handleDisconnectWallet}
+              connectedAddress={connectedAddress || undefined}
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Trading Portal</h1>
-          <p className="mt-2 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-primary">Trading Portal</h1>
+          <p className="mt-2 text-sm text-primary opacity-75">
             Buy and sell OVT tokens on the Bitcoin testnet
           </p>
         </div>
         
-        {!isConnected ? (
-          <div className="bg-white p-6 rounded-lg shadow text-center">
-            <p className="text-lg text-gray-700 mb-4">Please connect your wallet to start trading</p>
-            <p className="text-sm text-gray-500">You need to connect your wallet to access trading functionality</p>
-          </div>
-        ) : !walletAddress || !laserEyesWallets.includes(walletAddress) ? (
-          <div className="bg-white p-6 rounded-lg shadow text-center">
-            <p className="text-lg text-gray-700 mb-4">Trading Access Restricted</p>
-            <p className="text-sm text-gray-500">
-              Only authorized users can access the trading interface.
-              If you believe you should have access, please contact support.
-            </p>
-          </div>
-        ) : (
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="mb-6">
-              <h2 className="text-lg font-medium text-gray-900">Market Overview</h2>
-              <p className="text-sm text-gray-500">
-                Trade OVT tokens using market or limit orders. Please note that all trades are simulated 
-                on the testnet and do not involve real value.
-              </p>
-              <div className="mt-2 text-xs text-gray-400 flex items-center">
-                <span className={`inline-block w-2 h-2 rounded-full mr-1 ${
-                  tradingDataSource.isMock ? 'bg-amber-500' : 'bg-green-500'
-                }`}></span>
-                <span>Using {tradingDataSource.label}</span>
-              </div>
-            </div>
-            
-            <div className="border-t border-gray-200 pt-6">
-              <TradingInterface />
-            </div>
-          </div>
+        {/* Only render client-dependent content when mounted */}
+        {isMounted && (
+          <DynamicTradingContent 
+            isConnected={isConnected}
+            connectedAddress={connectedAddress}
+            walletAddress={walletAddress}
+            laserEyesWallets={laserEyesWallets}
+            tradingDataSource={tradingDataSource}
+          />
         )}
       </div>
     </Layout>

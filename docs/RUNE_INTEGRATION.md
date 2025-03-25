@@ -20,7 +20,7 @@ The OVT token is now implemented as a Bitcoin Rune on signet, which provides the
 
 The implementation consists of the following components:
 
-1. **Etching Script**: `scripts/etch-ovt-rune.js` - Creates the initial OVT rune on signet [DEPRECATED] **MANUALLY ETCHED AND MINTED with 21M supply on 20th March.**
+1. **Etching Script**: `scripts/etch-ovt-rune.js` - Creates the initial OVT rune on signet [DEPRECATED] **MANUALLY ETCHED AND MINTED with 2.1M supply on 20th March.**
 2. **Minting Script**: `scripts/mint-ovt-rune.js` - Mints additional OVT tokens as needed [DEPRECATED] **MANUALLY ETCHED AND MINTED on 20th March.**
 3. **RuneInfo Component**: `src/components/RuneInfo.tsx` - Displays rune information
 4. **API Endpoints**:

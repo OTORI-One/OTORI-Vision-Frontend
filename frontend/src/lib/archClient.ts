@@ -245,24 +245,63 @@ export class ArchClient {
   }
 
   async getMarketPrice(): Promise<number> {
-    try {
-      const response = await fetch(`${this.endpoint}/market_price`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
+    let retryCount = 0;
+    const maxRetries = 2;
+    const fallbackPrice = 700000; // 700k sats default
+    
+    while (retryCount <= maxRetries) {
+      try {
+        const response = await fetch(`${this.endpoint}/market_price`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+
+        if (!response.ok) {
+          console.warn(`Market price fetch failed with status ${response.status} (attempt ${retryCount + 1}/${maxRetries + 1})`);
+          retryCount++;
+          
+          if (retryCount > maxRetries) {
+            throw new Error(`Failed to fetch market price after ${maxRetries + 1} attempts`);
+          }
+          
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, 500 * retryCount));
+          continue;
         }
-      });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch market price');
+        const data = await response.json();
+        if (!data || typeof data.price !== 'number' || data.price <= 0) {
+          console.warn(`Invalid market price received: ${JSON.stringify(data)} (attempt ${retryCount + 1}/${maxRetries + 1})`);
+          retryCount++;
+          
+          if (retryCount > maxRetries) {
+            console.log(`Using fallback price: ${fallbackPrice}`);
+            return fallbackPrice;
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 500 * retryCount));
+          continue;
+        }
+        
+        return data.price;
+      } catch (error) {
+        console.error(`Failed to fetch market price (attempt ${retryCount + 1}/${maxRetries + 1}):`, error);
+        retryCount++;
+        
+        if (retryCount > maxRetries) {
+          console.log(`Using fallback price: ${fallbackPrice}`);
+          return fallbackPrice; // Return fallback price instead of throwing
+        }
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 500 * retryCount));
       }
-
-      const data = await response.json();
-      return data.price;
-    } catch (error) {
-      console.error('Failed to fetch market price:', error);
-      throw error;
     }
+    
+    // This should never be reached due to the returns above, but TypeScript requires it
+    return fallbackPrice;
   }
 
   async estimatePriceImpact(amount: number, isBuy: boolean): Promise<number> {

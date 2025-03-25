@@ -2,9 +2,22 @@ import type { AppProps } from 'next/app';
 import { LaserEyesProvider } from '@omnisat/lasereyes';
 import { useEffect } from 'react';
 import { ensurePortfolioDataLoaded } from '../src/utils/portfolioLoader';
+import { useBitcoinPrice } from '../src/hooks/useBitcoinPrice';
+import { CurrencyProvider } from '../src/hooks/useCurrencyToggle';
 import '@/styles/globals.css';
 
+// Initialize global BTC price for formatting utilities
+declare global {
+  interface Window {
+    btcPrice: number;
+    globalBaseCurrency: 'btc' | 'usd';
+  }
+}
+
 export default function App({ Component, pageProps }: AppProps) {
+  // Get Bitcoin price from hook
+  const { price: btcPrice } = useBitcoinPrice();
+
   // Inject mock data on client-side
   useEffect(() => {
     ensurePortfolioDataLoaded();
@@ -21,6 +34,20 @@ export default function App({ Component, pageProps }: AppProps) {
     };
   }, []);
   
+  // Set global Bitcoin price when it's available
+  useEffect(() => {
+    if (typeof window !== 'undefined' && btcPrice) {
+      window.btcPrice = btcPrice;
+      
+      // Dispatch an event for the currency provider to pick up
+      window.dispatchEvent(new CustomEvent('btcprice-update', { 
+        detail: { price: btcPrice } 
+      }));
+      
+      console.log('[_app.tsx] Updated global BTC price:', btcPrice);
+    }
+  }, [btcPrice]);
+  
   console.log('[_app.tsx] Initializing LaserEyesProvider with config:', {
     network: 'testnet4',
     timestamp: new Date().toISOString()
@@ -32,7 +59,9 @@ export default function App({ Component, pageProps }: AppProps) {
         network: 'testnet4'
       }}
     >
-      <Component {...pageProps} />
+      <CurrencyProvider initialCurrency="usd">
+        <Component {...pageProps} />
+      </CurrencyProvider>
     </LaserEyesProvider>
   );
 }

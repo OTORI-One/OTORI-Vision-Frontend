@@ -8,137 +8,160 @@ interface WalletConnectorProps {
 }
 
 export default function WalletConnector({ onConnect, onDisconnect, connectedAddress }: WalletConnectorProps) {
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [walletMenuOpen, setWalletMenuOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { connect, disconnect, address, network } = useLaserEyes();
-
+  
   // Event emitter for wallet connections
   useEffect(() => {
-    if (address) {
-      console.log('Wallet connected:', address);
-      // Dispatch a custom event that other components can listen for
-      const event = new CustomEvent('wallet-connected', { detail: { address } });
-      window.dispatchEvent(event);
-      
-      // Call onConnect directly if address changes from the connectedAddress
-      if (address !== connectedAddress) {
-        console.log('Address changed or newly connected, calling onConnect with:', address);
+    if (address && !connectedAddress) {
+      // When the wallet connects and we have an onConnect callback
+      if (onConnect) {
         onConnect(address);
       }
     }
   }, [address, connectedAddress, onConnect]);
-
-  const handleConnect = useCallback(async (wallet: ProviderType) => {
-    setIsConnecting(true);
-    setError(null);
-
-    try {
-      console.log('Attempting to connect with wallet:', wallet);
-      await connect(wallet);
-      
-      if (address) {
-        console.log('Successfully connected to wallet');
-        console.log('Current network:', network);
-        console.log('Current address:', address);
-        onConnect(address);
-      }
-    } catch (err: any) {
-      console.error('Wallet connection error:', err);
-      console.error('Error details:', {
-        message: err.message,
-        network: network,
-        wallet: wallet
-      });
-      
-      if (err.message?.includes('User canceled') || err.message?.includes('user rejected')) {
-        console.log('User cancelled connection');
-        return;
-      }
-      
-      if (err.message?.includes('not installed')) {
-        setError(`${wallet} wallet is not installed. Please install it first.`);
-      } else if (err.message?.toLowerCase().includes('network') || err.message?.toLowerCase().includes('testnet')) {
-        setError('Please switch to Bitcoin Testnet 4 in your wallet settings');
-      } else {
-        setError('Connection failed. Please try again.');
-      }
-    } finally {
-      setIsConnecting(false);
+  
+  // Network badge styling based on network
+  const getNetworkBadgeStyle = (networkName: string | null) => {
+    if (!networkName) return 'bg-gray-100 text-gray-800';
+    
+    switch (networkName.toLowerCase()) {
+      case 'mainnet':
+        return 'bg-green-700 text-white';
+      case 'testnet':
+      case 'testnet3':
+      case 'testnet4':
+        return 'bg-blue-700 text-white';
+      case 'signet':
+        return 'bg-purple-700 text-white';
+      case 'regtest':
+        return 'bg-orange-700 text-white';
+      default:
+        return 'bg-gray-700 text-white';
     }
-  }, [connect, address, network, onConnect]);
-
-  const handleDisconnect = useCallback(() => {
-    disconnect();
-    onDisconnect();
+  };
+  
+  // Function to format the network name
+  const formatNetworkName = (networkName: string | null) => {
+    if (!networkName) return 'Unknown';
+    
+    // If it's a testnet with a number (like testnet4), just return "Testnet"
+    if (networkName.toLowerCase().startsWith('testnet')) {
+      return 'Testnet';
+    }
+    
+    // Make first letter uppercase and the rest lowercase
+    return networkName.charAt(0).toUpperCase() + networkName.slice(1).toLowerCase();
+  };
+  
+  const handleConnect = useCallback(async (wallet: ProviderType) => {
+    try {
+      await connect(wallet);
+    } catch (err) {
+      console.error('Failed to connect wallet', err);
+      setError('Failed to connect wallet');
+    }
+  }, [connect]);
+  
+  const handleDisconnect = useCallback(async () => {
+    try {
+      await disconnect();
+      
+      if (onDisconnect) {
+        onDisconnect();
+      }
+    } catch (err) {
+      console.error('Failed to disconnect wallet', err);
+      setError('Failed to disconnect wallet');
+    }
     setError(null);
   }, [disconnect, onDisconnect]);
-
+  
   if (connectedAddress) {
     return (
       <div className="flex items-center space-x-4">
-        <div className="flex items-center space-x-2">
-          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-          <span className="text-sm text-gray-600">
-            {connectedAddress.slice(0, 6)}...{connectedAddress.slice(-4)}
-          </span>
-          <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">
-            Testnet 4
-          </span>
+        <div className="flex items-center px-4 py-2 bg-white border border-primary rounded-md shadow-sm">
+          <div className="flex flex-col">
+            <div className="flex items-center">
+              <div className="w-2.5 h-2.5 bg-success rounded-full mr-2"></div>
+              <span className="text-xs text-primary font-medium">Connected Wallet</span>
+            </div>
+            <div className="flex items-center mt-1">
+              <span className="text-sm font-mono text-primary font-medium tracking-wide">
+                {connectedAddress.slice(0, 10)}...{connectedAddress.slice(-6)}
+              </span>
+              <span className={`ml-2 text-xs px-2 py-0.5 rounded ${getNetworkBadgeStyle(network)}`}>
+                {formatNetworkName(network || 'Testnet')}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={handleDisconnect}
+            className="ml-3 text-sm text-primary hover:text-primary-dark border border-primary border-opacity-50 rounded-md px-2 py-0.5 hover:bg-primary hover:bg-opacity-10 transition-colors"
+          >
+            Disconnect
+          </button>
         </div>
-        <button
-          onClick={handleDisconnect}
-          className="text-sm text-gray-500 hover:text-gray-700"
-        >
-          Disconnect
-        </button>
       </div>
     );
   }
-
+  
   return (
-    <div className="flex flex-col space-y-4">
-      <div className="flex items-center space-x-2">
-        <button
-          onClick={() => handleConnect(XVERSE)}
-          disabled={isConnecting}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+    <div className="relative">
+      <button
+        onClick={() => setWalletMenuOpen(!walletMenuOpen)}
+        className="flex items-center justify-center px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 transition-colors font-medium"
+      >
+        <span className="mr-2">Connect Wallet</span>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className={`h-4 w-4 transition-transform ${walletMenuOpen ? 'rotate-180' : ''}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
         >
-          <span>{isConnecting ? 'Connecting...' : 'Connect Xverse'}</span>
-          {isConnecting && (
-            <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-          )}
-        </button>
-        
-        <button
-          onClick={() => handleConnect(UNISAT)}
-          disabled={isConnecting}
-          className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
-        >
-          <span>{isConnecting ? 'Connecting...' : 'Connect Unisat'}</span>
-          {isConnecting && (
-            <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-          )}
-        </button>
-      </div>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
       
-      {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-600 font-medium">
-            {error}
-          </p>
-          {error.toLowerCase().includes('testnet') && (
-            <div className="mt-2 space-y-2 text-sm text-red-500">
-              <p>To switch to Bitcoin Testnet 4:</p>
-              <ol className="list-decimal list-inside space-y-1 pl-2">
-                <li>Open your Xverse wallet</li>
-                <li>Click the settings gear icon</li>
-                <li>Select "Network"</li>
-                <li>Choose "Testnet 4"</li>
-                <li>Wait for the network switch to complete</li>
-                <li>Try connecting again</li>
-              </ol>
+      {walletMenuOpen && (
+        <div className="absolute right-0 mt-2 w-60 bg-white rounded-md shadow-lg z-50 border border-primary">
+          <div className="p-4">
+            <h3 className="text-lg font-semibold text-primary mb-4">Connect Wallet</h3>
+            
+            <div className="space-y-2">
+              <button
+                onClick={() => handleConnect("laser" as ProviderType)}
+                className="w-full flex items-center justify-between px-4 py-2 text-primary bg-white border border-primary rounded-md hover:bg-primary hover:bg-opacity-5 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50"
+              >
+                <span>Laser</span>
+                <img src="/icons/laser.svg" alt="Laser" className="h-5 w-5" />
+              </button>
+              
+              <button
+                onClick={() => handleConnect(XVERSE)}
+                className="w-full flex items-center justify-between px-4 py-2 text-primary bg-white border border-primary rounded-md hover:bg-primary hover:bg-opacity-5 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50"
+              >
+                <span>Xverse</span>
+                <img src="/icons/xverse.svg" alt="Xverse" className="h-5 w-5" />
+              </button>
+              
+              <button
+                onClick={() => handleConnect(UNISAT)}
+                className="w-full flex items-center justify-between px-4 py-2 text-primary bg-white border border-primary rounded-md hover:bg-primary hover:bg-opacity-5 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50"
+              >
+                <span>Unisat</span>
+                <img src="/icons/unisat.svg" alt="Unisat" className="h-5 w-5" />
+              </button>
             </div>
-          )}
+            
+            {error && (
+              <div className="mt-4 p-2 bg-error bg-opacity-10 text-error text-sm rounded">
+                {error}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

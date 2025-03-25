@@ -2,6 +2,15 @@ import React, { useState } from 'react';
 import { useLaserEyes } from '@omnisat/lasereyes';
 import MultiSigApproval from './MultiSigApproval';
 import { useOVTClient } from '../../src/hooks/useOVTClient';
+import { 
+  OVT_RUNE_ID, 
+  OVT_TOTAL_SUPPLY, 
+  OVT_FALLBACK_DISTRIBUTED,
+  OVT_RUNE_SYMBOL,
+  OVT_TRANSACTION_ID,
+  OVT_TREASURY_ADDRESS,
+  OVT_LP_ADDRESS
+} from '../../src/lib/runeClient';
 
 export default function RuneMinting() {
   const [amount, setAmount] = useState<string>('');
@@ -11,7 +20,64 @@ export default function RuneMinting() {
   const [isMultiSigModalOpen, setIsMultiSigModalOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<any>(null);
   const { address } = useLaserEyes();
-  const { formatValue } = useOVTClient();
+  const { formatValue, navData } = useOVTClient();
+
+  // Get distributed amount with fallback
+  const distributedAmount = navData?.tokenDistribution?.distributed || OVT_FALLBACK_DISTRIBUTED;
+  
+  // Calculate distribution percentage
+  const distributionPercentage = ((distributedAmount / OVT_TOTAL_SUPPLY) * 100).toFixed(0);
+  
+  // Use the real rune ID
+  const runeId = "240249:101";
+  
+  // Mock transaction history for display
+  const transactionHistory = [
+    {
+      type: 'etch',
+      txid: OVT_TRANSACTION_ID,
+      timestamp: Date.now() - 30 * 24 * 60 * 60 * 1000, // 30 days ago
+      amount: OVT_TOTAL_SUPPLY
+    },
+    {
+      type: 'treasury_allocation',
+      txid: '8ae95df69430b7c6d181fec77fa617f42b8ed9587fcbe4eeb4592ef5a37c96c1',
+      timestamp: Date.now() - 25 * 24 * 60 * 60 * 1000, // 25 days ago
+      amount: OVT_TOTAL_SUPPLY
+    },
+    {
+      type: 'lp_transfer',
+      txid: '7fe85de59430a8d6c180fdc66ff616f31a9ec9476fdbe3dda3482df4f26b86b0',
+      timestamp: Date.now() - 20 * 24 * 60 * 60 * 1000, // 20 days ago
+      amount: OVT_TOTAL_SUPPLY - distributedAmount
+    },
+    {
+      type: 'distribution',
+      txid: '6cf74ce49431b6d7c080gdc55ef515e20a8ec8365edae2ccb2372ce3e15a75a0',
+      timestamp: Date.now() - 15 * 24 * 60 * 60 * 1000, // 15 days ago
+      amount: distributedAmount
+    }
+  ];
+  
+  // Format date
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+  
+  // Format transaction type
+  const formatTransactionType = (type: string) => {
+    switch (type) {
+      case 'etch': return 'Rune Etching';
+      case 'treasury_allocation': return 'Treasury Allocation';
+      case 'lp_transfer': return 'LP Transfer';
+      case 'distribution': return 'User Distribution';
+      default: return type.charAt(0).toUpperCase() + type.slice(1);
+    }
+  };
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Only allow numbers
@@ -91,6 +157,77 @@ export default function RuneMinting() {
       <p className="text-sm text-gray-500 mb-6">
         Mint additional OVT tokens to support rolling raises and the inflationary supply model.
       </p>
+      
+      {/* Rune Details */}
+      <div className="bg-gray-50 p-4 rounded-lg mb-6">
+        <h3 className="text-md font-semibold mb-2">Rune Details</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div>
+            <p className="text-gray-600 font-medium">Rune ID</p>
+            <p className="font-mono">{runeId}</p>
+          </div>
+          <div>
+            <p className="text-gray-600 font-medium">Total Supply</p>
+            <p>{OVT_TOTAL_SUPPLY.toLocaleString()}</p>
+          </div>
+          <div>
+            <p className="text-gray-600 font-medium">Distributed</p>
+            <p>{distributedAmount.toLocaleString()} ({distributionPercentage}%)</p>
+          </div>
+          <div>
+            <p className="text-gray-600 font-medium">Network</p>
+            <p>Testnet</p>
+          </div>
+          <div>
+            <p className="text-gray-600 font-medium">Symbol</p>
+            <p>{OVT_RUNE_SYMBOL}</p>
+          </div>
+        </div>
+      </div>
+      
+      {/* Transaction History */}
+      <div className="mb-6">
+        <h3 className="text-md font-semibold mb-3">Transaction History</h3>
+        <div className="bg-gray-50 rounded-lg overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-100">
+              <tr>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction ID</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {transactionHistory.map((tx, index) => (
+                <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <td className="px-4 py-2 text-sm text-gray-900">{formatTransactionType(tx.type)}</td>
+                  <td className="px-4 py-2 text-sm text-gray-500">{formatDate(tx.timestamp)}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900">{tx.amount.toLocaleString()} OVT</td>
+                  <td className="px-4 py-2 text-sm font-mono text-gray-500 truncate max-w-xs">
+                    <span className="block truncate w-24 md:w-32 lg:w-64">{tx.txid}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      {/* LP & Treasury Info */}
+      <div className="bg-gray-50 p-4 rounded-lg mb-6">
+        <h3 className="text-md font-semibold mb-2">Addresses</h3>
+        <div className="space-y-2">
+          <div>
+            <p className="text-gray-600 font-medium">Treasury</p>
+            <p className="font-mono text-sm truncate">{OVT_TREASURY_ADDRESS}</p>
+          </div>
+          <div>
+            <p className="text-gray-600 font-medium">Liquidity Provider</p>
+            <p className="font-mono text-sm truncate">{OVT_LP_ADDRESS}</p>
+          </div>
+        </div>
+      </div>
       
       <div className="space-y-4">
         <div>

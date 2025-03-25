@@ -88,14 +88,32 @@ export function useTradingModule() {
     setError(null);
 
     try {
+      // Try to get the price from the API
       const price = await archClient.getMarketPrice();
       setIsLoading(false);
       return price;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error fetching price';
+      console.warn('Market price fetch error, using cached price:', errorMessage);
       setError(errorMessage);
       setIsLoading(false);
-      throw err;
+      
+      // Get OVT price from local storage as fallback
+      try {
+        const savedPrice = localStorage.getItem('ovt-global-price');
+        if (savedPrice) {
+          const parsedPrice = parseFloat(savedPrice);
+          if (Number.isFinite(parsedPrice) && parsedPrice > 0) {
+            console.log('Using cached OVT price from localStorage:', parsedPrice);
+            return parsedPrice;
+          }
+        }
+      } catch (e) {
+        console.error('Failed to get OVT price from localStorage:', e);
+      }
+      
+      // If all else fails, return a hardcoded fallback price
+      return 700000; // 700k sats as fallback
     }
   }, [archClient]);
 

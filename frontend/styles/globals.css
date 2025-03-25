@@ -2,6 +2,100 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Update color scheme based on frontend guidelines */
+  --primary: #1F2937;      /* Dark Blue */
+  --secondary: #7297ce;    /* Bluegrey */
+  --accent-light: #F9FAFB; /* Soft White */
+  --accent-gray: #E5E7EB;  /* Light Gray */
+  --highlight: #7bc6d5;    /* Vibrant Cyan */
+  
+  /* Define additional colors */
+  --success: #10B981;      /* Green */
+  --error: #EF4444;        /* Red */
+  --warning: #F59E0B;      /* Yellow */
+  --info: #3B82F6;         /* Blue */
+  
+  /* Dark theme variations */
+  --primary-dark: #111827;
+  --primary-light: #374151;
+  
+  /* Default background/text colors */
+  --background: var(--accent-light);
+  --text: var(--primary);
+}
+
+/* Dark mode colors */
+.dark {
+  --background: var(--primary);
+  --text: var(--accent-light);
+}
+
+/* Global styles */
+body {
+  background-color: var(--background);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* Custom theme classes */
+.bg-primary {
+  background-color: var(--primary);
+}
+
+.bg-secondary {
+  background-color: var(--secondary);
+}
+
+.bg-highlight {
+  background-color: var(--highlight);
+}
+
+.text-primary {
+  color: var(--primary);
+}
+
+.text-secondary {
+  color: var(--secondary);
+}
+
+.text-highlight {
+  color: var(--highlight);
+}
+
+.border-highlight {
+  border-color: var(--highlight);
+}
+
+/* Button styles */
+.btn-primary {
+  background-color: var(--primary);
+  color: var(--accent-light);
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-light);
+}
+
+.btn-secondary {
+  background-color: var(--secondary);
+  color: var(--accent-light);
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-highlight {
+  background-color: var(--highlight);
+  color: var(--primary);
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  transition: all 0.2s ease-in-out;
+}
+
 @layer components {
   .btn-primary {
     @apply px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors;

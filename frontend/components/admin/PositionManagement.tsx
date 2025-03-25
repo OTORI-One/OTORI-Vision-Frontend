@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useOVTClient } from '../../src/hooks/useOVTClient';
+import { usePortfolio } from '../../src/hooks/usePortfolio';
+import { PortfolioPosition } from '../../src/utils/priceMovement';
 import type { Portfolio } from '../../src/hooks/useOVTClient';
 
 const SATS_PER_BTC = 100000000;
@@ -9,8 +11,8 @@ interface PositionManagementProps {
 }
 
 export default function PositionManagement({ onActionRequiringMultiSig }: PositionManagementProps) {
-  const { addPosition, getPositions, formatValue } = useOVTClient();
-  const [positions, setPositions] = useState<Portfolio[]>([]);
+  const { formatValue } = useOVTClient();
+  const { positions, addPosition } = usePortfolio();
   const [newPosition, setNewPosition] = useState({
     name: '',
     description: '',
@@ -18,19 +20,6 @@ export default function PositionManagement({ onActionRequiringMultiSig }: Positi
     pricePerToken: '', // in sats
   });
   const [error, setError] = useState<string | null>(null);
-
-  // Load positions on mount
-  useEffect(() => {
-    const loadPositions = async () => {
-      try {
-        const loadedPositions = await getPositions();
-        setPositions(loadedPositions);
-      } catch (error) {
-        console.error('Error loading positions:', error);
-      }
-    };
-    loadPositions();
-  }, [getPositions]);
 
   // Calculate token amount based on investment amount and price per token
   const calculateTokenAmount = (): number => {
@@ -90,13 +79,16 @@ export default function PositionManagement({ onActionRequiringMultiSig }: Positi
       const satsValue = Math.floor(btcAmount * SATS_PER_BTC);
       const tokenAmount = calculateTokenAmount();
       
-      const portfolioData = {
+      const portfolioData: PortfolioPosition = {
         name: newPosition.name,
         description: newPosition.description,
         value: satsValue,
+        current: satsValue, // Initially, current value equals initial value
+        change: 0, // Initially, no change
         tokenAmount,
         pricePerToken: Math.floor(parseFloat(newPosition.pricePerToken)),
         address: 'bc1p...', // Mock address for testing
+        transactionId: `tx_${Date.now()}` // Generate a unique transaction ID
       };
 
       // This will require multi-sig approval
@@ -249,34 +241,32 @@ export default function PositionManagement({ onActionRequiringMultiSig }: Positi
       </div>
 
       {/* Current Positions */}
-      <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+      <div className="bg-white shadow overflow-hidden sm:rounded-lg border border-primary">
         <div className="px-4 py-5 sm:px-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900">Current Positions</h3>
+          <h3 className="text-lg leading-6 font-medium text-primary">Current Positions</h3>
         </div>
-        <div className="border-t border-gray-200">
-          <ul role="list" className="divide-y divide-gray-200">
+        <div className="border-t border-primary border-opacity-20">
+          <ul role="list" className="divide-y divide-primary divide-opacity-20">
             {positions.map((position, index) => (
-              <li key={index} className="px-4 py-4 sm:px-6">
+              <li key={index} className="px-4 py-4 sm:px-6 hover:bg-primary hover:bg-opacity-5 transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-lg font-medium text-gray-900">{position.name}</h4>
-                    <p className="mt-1 text-sm text-gray-500">{position.description}</p>
-                    <p className="mt-1 text-sm text-gray-500">
-                      {new Intl.NumberFormat().format(position.tokenAmount)} tokens @ {formatValue(position.pricePerToken)}
+                    <h4 className="text-lg font-medium text-primary">{position.name}</h4>
+                    <p className="mt-1 text-sm text-primary opacity-75">{position.description}</p>
+                    <p className="mt-1 text-sm text-primary">
+                      {position.tokenAmount.toLocaleString()} tokens @ {formatValue(position.pricePerToken)}
                     </p>
                   </div>
                   <div className="ml-4 flex-shrink-0">
-                    <div className="text-sm text-gray-900 text-right">
+                    <div className="text-sm text-primary text-right">
                       Initial: {formatValue(position.value)}
                     </div>
-                    <div className="text-sm text-gray-900 text-right">
+                    <div className="text-sm text-primary text-right">
                       Current: {formatValue(position.current)}
                     </div>
-                    <div className={`text-sm ${position.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <div className={`text-sm ${position.change >= 0 ? 'text-success' : 'text-error'}`}>
                       {position.change >= 0 ? '+' : ''}
-                      {String(position.change).includes('%') 
-                        ? String(position.change) 
-                        : `${position.change}%`}
+                      {position.change}%
                     </div>
                   </div>
                 </div>

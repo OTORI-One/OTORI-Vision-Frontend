@@ -96,7 +96,7 @@ export default function Layout({ children, title = 'OTORI Vision Token' }: Layou
               <Link href="/" passHref>
                 <span className="flex-shrink-0 flex items-center cursor-pointer">
                   <img className="h-8 w-auto" src="/logo.svg" alt="OTORI" />
-                  <span className="ml-2 text-lg font-bold text-gray-900">OVT Fund</span>
+                  <span className="ml-2 text-lg font-bold text-gray-900">OTORI Vision</span>
                 </span>
               </Link>
               <nav className="ml-8 flex space-x-4">

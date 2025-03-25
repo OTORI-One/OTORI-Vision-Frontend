@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTradingModule } from '../src/hooks/useTradingModule';
-import { useOVTClient, SATS_PER_BTC } from '../src/hooks/useOVTClient';
+import { useOVTClient, SATS_PER_BTC, updateGlobalOVTPrice } from '../src/hooks/useOVTClient';
 import { Switch } from '@headlessui/react';
 import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline';
 import DataSourceIndicator from './DataSourceIndicator';
+import { useCurrencyToggle } from '../src/hooks/useCurrencyToggle';
+import { usePortfolio } from '../src/hooks/usePortfolio';
 
 interface PriceDisplay {
   impact: number | null;
@@ -40,10 +42,34 @@ export function TradingInterface() {
     dataSourceIndicator
   } = useTradingModule();
   
-  const { formatValue, baseCurrency, btcPrice } = useOVTClient();
+  // Use our hooks for consistent data across the app
+  const { formatValue: clientFormatValue, baseCurrency, btcPrice } = useOVTClient();
+  const { formatValue } = useCurrencyToggle();
+  const { positions } = usePortfolio();
+  
+  // Get the OVT price from portfolio positions to ensure consistency
+  const ovtPrice = useMemo(() => {
+    // Use the first position (OVT) from our central portfolio data
+    return positions.length > 0 ? positions[0].pricePerToken : 300;
+  }, [positions]);
   
   // State for market price
   const [marketPrice, setMarketPrice] = useState<number>(0);
+  
+  // Use relevant components from hooks
+  const [activeBuySellTab, setActiveBuySellTab] = useState<'buy' | 'sell'>('buy');
+  
+  // Format the displayed market price
+  const displayedMarketPrice = useMemo(() => {
+    // Always use the portfolio data for consistency
+    return formatValue(ovtPrice);
+  }, [formatValue, ovtPrice]);
+  
+  // Neatly format the price impact for display
+  const formatPriceImpact = (impact: number | null): string => {
+    if (impact === null || isNaN(impact)) return '0.00%';
+    return `${impact >= 0 ? '+' : ''}${impact.toFixed(2)}%`;
+  };
   
   // Log when currency changes to ensure component is updating
   useEffect(() => {
@@ -52,22 +78,33 @@ export function TradingInterface() {
   
   // Fetch market price on component mount
   useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
+    
     const fetchMarketPrice = async () => {
       try {
-        const price = await getMarketPrice();
-        setMarketPrice(price);
+        console.log('TradingInterface: Setting market price from portfolio data');
+        setMarketPrice(ovtPrice);
+        // Update the global OVT price state for consistency
+        updateGlobalOVTPrice(ovtPrice);
       } catch (error) {
-        console.error('Error fetching market price:', error);
+        console.error('Error setting market price:', error);
       }
     };
     
+    // Run immediately once
     fetchMarketPrice();
     
-    // Set up periodic price updates
-    const interval = setInterval(fetchMarketPrice, 30000); // Update every 30 seconds
+    // Set up periodic price updates - store reference to clear later
+    intervalId = setInterval(fetchMarketPrice, 10000); // Update every 10 seconds
     
-    return () => clearInterval(interval);
-  }, [getMarketPrice]);
+    // Cleanup function to prevent memory leaks
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+  }, [ovtPrice]);
   
   // Calculate price impact when buy amount changes
   useEffect(() => {
@@ -236,7 +273,7 @@ export function TradingInterface() {
   
   // Format price according to selected currency
   const formatCurrencyValue = (satValue: number | null): string => {
-    if (satValue === null || isNaN(satValue)) {
+    if (satValue === null || isNaN(satValue) || satValue <= 0) {
       return baseCurrency === 'usd' ? '$0.00' : '0 sats';
     }
     return formatValue(satValue);
@@ -290,8 +327,8 @@ export function TradingInterface() {
       {/* Market price display */}
       <div className="text-center mb-2">
         <p className="text-gray-600">Current Market Price</p>
-        <p className="text-xl font-bold">
-          {formatValue(marketPrice)} per OVT
+        <p className="text-xl font-bold currency-dependent" data-currency={baseCurrency}>
+          {displayedMarketPrice} per OVT
         </p>
       </div>
       
@@ -364,7 +401,7 @@ export function TradingInterface() {
             {buyPriceImpact !== null && buyAmount && parseFloat(buyAmount) > 0 && (
               <div>
                 <p className="text-gray-700 text-sm mb-1">Price Impact</p>
-                <p className="font-medium text-green-700">{formatValue(buyPriceImpact)} per OVT</p>
+                <p className="font-medium text-green-700">{formatPriceImpact(buyPriceImpact)}</p>
                 
                 <p className="text-gray-700 text-sm mt-2 mb-1">Estimated Cost</p>
                 <p className="font-medium text-green-700">{formatCurrencyValue(calculateBuyCost())}</p>
@@ -443,7 +480,7 @@ export function TradingInterface() {
             {sellPriceImpact !== null && sellAmount && parseFloat(sellAmount) > 0 && (
               <div>
                 <p className="text-gray-700 text-sm mb-1">Price Impact</p>
-                <p className="font-medium text-red-700">{formatValue(sellPriceImpact)} per OVT</p>
+                <p className="font-medium text-red-700">{formatPriceImpact(sellPriceImpact)}</p>
                 
                 <p className="text-gray-700 text-sm mt-2 mb-1">Expected Return</p>
                 <p className="font-medium text-red-700">{formatCurrencyValue(calculateSellReturn())}</p>

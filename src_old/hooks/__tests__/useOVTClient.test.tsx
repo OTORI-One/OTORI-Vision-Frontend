@@ -27,15 +27,15 @@ jest.mock('../../lib/runeClient', () => {
         id: 'test-rune-id',
         symbol: 'OVT',
         supply: {
-          total: 21000000,
+          total: 2100000,
           distributed: 1000000,
-          treasury: 20000000,
-          percentDistributed: 4.76
+          treasury: 1100000,
+          percentDistributed: 47.62
         },
         events: []
       }),
       getRuneBalances: jest.fn().mockResolvedValue([
-        { address: 'treasury-address', amount: 20000000, isDistributed: false },
+        { address: 'treasury-address', amount: 1100000, isDistributed: false },
         { address: 'user1-address', amount: 500000, isDistributed: true },
         { address: 'user2-address', amount: 500000, isDistributed: true }
       ]),
@@ -125,7 +125,7 @@ describe('useOVTClient', () => {
         }
       ],
       tokenDistribution: {
-        totalSupply: 21000000,
+        totalSupply: 2100000,
         distributed: 1000000,
         runeId: 'test-rune-id',
         runeSymbol: 'OVT',
@@ -262,7 +262,7 @@ describe('useOVTClient', () => {
     });
 
     // Check that the rune data matches our mock
-    expect(result.current.navData.tokenDistribution.totalSupply).toBe(21000000);
+    expect(result.current.navData.tokenDistribution.totalSupply).toBe(2100000);
     expect(result.current.navData.tokenDistribution.distributed).toBe(1000000);
     expect(result.current.navData.tokenDistribution.runeId).toBe('test-rune-id');
     expect(result.current.navData.tokenDistribution.runeSymbol).toBe('OVT');

@@ -82,8 +82,8 @@ for (let day = 1; day <= daysToSimulate; day++) {
     
     // Generate appropriate price change
     const changePercentage = shouldSpike 
-      ? generateSuperSpike() 
-      : generateDailyPriceChange(new Date(), positiveBias);
+      ? generateSuperSpike(position) 
+      : generateDailyPriceChange(position, new Date(), positiveBias);
     
     // Apply the price movement
     const updatedPosition = applyPriceMovement(position, changePercentage, shouldSpike, day);
