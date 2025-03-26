@@ -1,85 +1,94 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
 import { useBitcoinPrice } from '../src/hooks/useBitcoinPrice';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useOVTClient } from '../src/hooks/useOVTClient';
 import { usePortfolio } from '../src/hooks/usePortfolio';
 import { useCurrencyToggle } from '../src/hooks/useCurrencyToggle';
+import { useOVTPrice } from '../src/hooks/useOVTPrice';
 
 interface PriceData {
   name: string;
   value: number;
+  change?: number;
 }
 
 interface PriceChartProps {
   data?: PriceData[];
   baseCurrency?: 'usd' | 'btc';
+  days?: number;
 }
 
 // Default color theme
-const CHART_PRIMARY_COLOR = '#29378d'; // primary
+const CHART_PRIMARY_COLOR = '#29378d'; // OTORI brand deep purple
 const CHART_SUCCESS_COLOR = '#10B981'; // success
 const CHART_ERROR_COLOR = '#EF4444';   // error
 
 // Use the centralized formatter from useOVTClient
-export default function PriceChart({ baseCurrency = 'usd' }: PriceChartProps) {
+export default function PriceChart({ baseCurrency = 'usd', days = 30 }: PriceChartProps) {
   const { formatValue } = useCurrencyToggle();
-  const { positions } = usePortfolio();
+  const { price: ovtPrice, dailyChange } = useOVTPrice();
+  const [priceHistory, setPriceHistory] = useState<PriceData[]>([]);
   
-  // Generate price data from portfolio positions
-  const priceData = useMemo(() => {
-    // If no positions, use mock data
-    if (!positions || positions.length === 0) {
-      return mockData;
+  // Generate historical price data
+  useEffect(() => {
+    // In a real implementation, this would fetch from an API
+    // For now, we'll generate synthetic data based on the current price
+    if (ovtPrice <= 0) return;
+    
+    const today = new Date();
+    const data: PriceData[] = [];
+    
+    // Generate past data points with some randomness but trending toward current price
+    for (let i = days; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      
+      // Create a price that trends from -30% to current price with some randomness
+      const randomFactor = 0.5 + Math.random();
+      const dayProgress = (days - i) / days;
+      const dayValue = ovtPrice * (0.7 + (0.3 * dayProgress * randomFactor));
+      
+      data.push({
+        name: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        value: Math.round(dayValue * 100) / 100,
+        change: i > 0 ? 
+          Math.round(((data[data.length-1]?.value || dayValue) - dayValue) / dayValue * 1000) / 10 : 
+          dailyChange
+      });
     }
     
-    // Create a time series of price data (for now, use position names as time points)
-    return positions.map(position => ({
-      name: position.name,
-      value: position.pricePerToken,
-      change: position.change
-    }));
-  }, [positions]);
+    setPriceHistory(data);
+  }, [ovtPrice, dailyChange, days]);
   
   // Calculate if overall trend is positive
   const isPositiveTrend = useMemo(() => {
-    if (priceData.length < 2) return true;
-    return priceData[priceData.length - 1].value >= priceData[0].value;
-  }, [priceData]);
+    if (priceHistory.length < 2) return true;
+    return priceHistory[priceHistory.length - 1].value >= priceHistory[0].value;
+  }, [priceHistory]);
   
-  const gradientId = isPositiveTrend ? "positiveGradient" : "negativeGradient";
-  const chartColor = isPositiveTrend ? CHART_SUCCESS_COLOR : CHART_ERROR_COLOR;
+  const gradientId = "ovtPriceGradient";
+  const chartColor = CHART_PRIMARY_COLOR;
   
-  const maxValue = Math.max(...priceData.map(item => item.value));
+  const maxValue = Math.max(...priceHistory.map(item => item.value));
   const yAxisDomain = [0, Math.ceil(maxValue * 1.1)]; // Add 10% padding to the top
-
-  // Add console logs to track when currency changes
-  useEffect(() => {
-    console.log('PriceChart: baseCurrency changed to', baseCurrency);
-  }, [baseCurrency]);
-  
-  // Listen for global currency changes
-  useEffect(() => {
-    const handleCurrencyChange = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      console.log('PriceChart: Detected currency change event:', customEvent.detail);
-      // The component will re-render because the parent passes the new baseCurrency
-    };
-    
-    window.addEventListener('currency-changed', handleCurrencyChange);
-    return () => {
-      window.removeEventListener('currency-changed', handleCurrencyChange);
-    };
-  }, []);
 
   const formatYAxis = (value: number) => {
     return formatValue(value);
   };
 
+  if (priceHistory.length === 0) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <p className="text-gray-500">Loading price data...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
-          data={priceData}
+          data={priceHistory}
           margin={{
             top: 20,
             right: 30,

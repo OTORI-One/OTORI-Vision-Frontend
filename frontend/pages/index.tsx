@@ -19,6 +19,7 @@ import useNAV from '../src/hooks/useNAV';
 import { useCurrencyToggle } from '../src/hooks/useCurrencyToggle';
 import { usePortfolio } from '../src/hooks/usePortfolio';
 import { formatValue } from '../src/lib/formatting';
+import { useOVTPrice } from '../src/hooks/useOVTPrice';
 
 export default function Dashboard() {
   const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
@@ -37,6 +38,9 @@ export default function Dashboard() {
   
   // Use the currency toggle hook
   const { currency, toggleCurrency, formatValue: formatCurrencyValue } = useCurrencyToggle();
+  
+  // Get OVT price information
+  const { dailyChange, dailyChangeFormatted, isPositiveChange } = useOVTPrice();
   
   const { 
     isLoading, 
@@ -344,8 +348,8 @@ export default function Dashboard() {
                 
                 <div className="flex justify-between items-center">
                   <span className="text-primary">24h Change:</span>
-                  <span className={`font-medium ${nav.changePercentage >= 0 ? 'text-success' : 'text-error'}`}>
-                    {nav.changePercentage >= 0 ? '+' : ''}{nav.changePercentage.toFixed(2)}%
+                  <span className={`font-medium ${isPositiveChange ? 'text-success' : 'text-error'}`}>
+                    {dailyChangeFormatted}
                   </span>
                 </div>
               </div>
