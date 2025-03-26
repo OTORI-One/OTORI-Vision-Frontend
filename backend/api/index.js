@@ -1,20 +1,29 @@
-// Backend API entry point
-// This file serves as the main entry point for the backend API services
-
+/**
+ * OTORI Vision API Server
+ * Provides centralized services for price feeds, trading simulation, and runes API
+ */
 const express = require('express');
+const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
+
+// Initialize express app
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 3030;
 
 // Import API routes
 const runesAPI = require('./runes_API');
 const priceRoutes = require('./routes/priceRoutes');
+const tradingRoutes = require('./routes/tradingRoutes');
 
 // Middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // CORS middleware
+app.use(cors());
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
@@ -37,6 +46,12 @@ if (!fs.existsSync(dataDir)) {
 
 // Mount API routes
 app.use('/api/price', priceRoutes);
+app.use('/api/trading', tradingRoutes);
+
+// Simple health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // Home route for API documentation
 app.get('/', (req, res) => {
@@ -45,6 +60,11 @@ app.get('/', (req, res) => {
       path: '/',
       method: 'GET',
       description: 'API documentation',
+    },
+    {
+      path: '/api/health',
+      method: 'GET',
+      description: 'Health check endpoint',
     },
     {
       path: '/api/price/portfolio',
@@ -75,6 +95,41 @@ app.get('/', (req, res) => {
       path: '/api/price/update',
       method: 'POST',
       description: 'Trigger a manual price update (admin only)',
+    },
+    {
+      path: '/api/trading/orderbook',
+      method: 'GET',
+      description: 'Get current order book data',
+    },
+    {
+      path: '/api/trading/trades',
+      method: 'GET',
+      description: 'Get recent trades data',
+    },
+    {
+      path: '/api/trading/liquidity',
+      method: 'GET',
+      description: 'Get current liquidity data',
+    },
+    {
+      path: '/api/trading/user-trades',
+      method: 'GET',
+      description: 'Get trades for a specific user',
+    },
+    {
+      path: '/api/trading/market-order',
+      method: 'POST',
+      description: 'Execute a market order',
+    },
+    {
+      path: '/api/trading/limit-order',
+      method: 'POST',
+      description: 'Place a limit order',
+    },
+    {
+      path: '/api/trading/price-impact',
+      method: 'GET',
+      description: 'Calculate price impact for a trade',
     }
   ];
 
@@ -124,18 +179,36 @@ app.get('/', (req, res) => {
     return res.send(html);
   }
 
-  res.json({ endpoints });
+  res.json({
+    name: 'OTORI Vision API',
+    version: '1.0.0',
+    endpoints
+  });
 });
 
 // Start server
 if (require.main === module) {
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`OTORI Vision API server running on port ${PORT}`);
   });
+  
+  // Set up a periodic task to match orders (every minute)
+  setInterval(() => {
+    try {
+      const tradingService = require('./services/tradingService');
+      const matches = tradingService.matchOrders();
+      if (matches.length > 0) {
+        console.log(`Matched ${matches.length} orders`);
+      }
+    } catch (error) {
+      console.error('Error in order matching task:', error);
+    }
+  }, 60000);
 }
 
 // Export for potential programmatic usage
 module.exports = {
   app,
+  server,
   runesAPI
 }; 
