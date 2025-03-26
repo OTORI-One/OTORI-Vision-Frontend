@@ -252,9 +252,10 @@ export default function PortfolioPage() {
                       </div>
                     </div>
                   </div>
-                  {item.transactionId && (
+                  {/* Check if transactionId exists using optional chaining and type assertion */}
+                  {(item as any).transactionId && (
                     <div className="mt-4 text-xs text-primary opacity-50">
-                      <p>TX: {item.transactionId.slice(0, 10)}...{item.transactionId.slice(-10)}</p>
+                      <p>TX: {((item as any).transactionId).slice(0, 10)}...{((item as any).transactionId).slice(-10)}</p>
                     </div>
                   )}
                 </div>

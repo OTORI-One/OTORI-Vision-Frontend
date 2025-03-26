@@ -1,0 +1,118 @@
+{
+  "positions": {
+    "Bitcoin": {
+      "current": 18336009085982.945,
+      "value": 500000,
+      "change": 3667201717.196589,
+      "pricePerToken": 12224006057321.963,
+      "tokenAmount": 1.5,
+      "description": "Digital Gold",
+      "lastUpdate": 1743025179298,
+      "lastSpikeDay": 20173,
+      "volatilityState": {
+        "lastValue": 550000,
+        "momentum": 0,
+        "trend": 0
+      }
+    },
+    "Lightning Network": {
+      "current": 78068714346109.08,
+      "value": 300000,
+      "change": 26022904682.036358,
+      "pricePerToken": 7806871434.610908,
+      "tokenAmount": 10000,
+      "description": "Layer 2 Scaling Solution",
+      "lastUpdate": 1743025179298,
+      "lastSpikeDay": 20173,
+      "volatilityState": {
+        "lastValue": 315000,
+        "momentum": 0,
+        "trend": 0
+      }
+    },
+    "Liquid Network": {
+      "current": 337477148349943.5,
+      "value": 200000,
+      "change": 168738574074.97174,
+      "pricePerToken": 337477148349.9435,
+      "tokenAmount": 1000,
+      "description": "Bitcoin Sidechain",
+      "lastUpdate": 1743025179298,
+      "lastSpikeDay": 20173,
+      "volatilityState": {
+        "lastValue": 190000,
+        "momentum": 0,
+        "trend": 0
+      }
+    },
+    "Rootstock": {
+      "current": 10820735151355.129,
+      "value": 150000,
+      "change": 7213823334.236753,
+      "pricePerToken": 2164147030.2710257,
+      "tokenAmount": 5000,
+      "description": "Smart Contracts on Bitcoin",
+      "lastUpdate": 1743025179299,
+      "lastSpikeDay": 20173,
+      "volatilityState": {
+        "lastValue": 165000,
+        "momentum": 0,
+        "trend": 0
+      }
+    },
+    "RGB Protocol": {
+      "current": 94960874007692.64,
+      "value": 100000,
+      "change": 94960873907.69264,
+      "pricePerToken": 9496087400.769264,
+      "tokenAmount": 10000,
+      "description": "Smart Assets on Bitcoin",
+      "lastUpdate": 1743025179299,
+      "lastSpikeDay": 20173,
+      "volatilityState": {
+        "lastValue": 120000,
+        "momentum": 0,
+        "trend": 0
+      }
+    }
+  },
+  "ovtPrice": 12224006057321.963,
+  "btcPrice": 87098,
+  "lastUpdate": 1743025179299,
+  "priceHistory": {
+    "daily": {
+      "Bitcoin": {
+        "2025-03-26": 18336009085982.945
+      },
+      "Lightning Network": {
+        "2025-03-26": 78068714346109.08
+      },
+      "Liquid Network": {
+        "2025-03-26": 337477148349943.5
+      },
+      "Rootstock": {
+        "2025-03-26": 10820735151355.129
+      },
+      "RGB Protocol": {
+        "2025-03-26": 94960874007692.64
+      }
+    },
+    "hourly": {
+      "Bitcoin": {
+        "2025-03-26T22": 18336009085982.945
+      },
+      "Lightning Network": {
+        "2025-03-26T22": 78068714346109.08
+      },
+      "Liquid Network": {
+        "2025-03-26T22": 337477148349943.5
+      },
+      "Rootstock": {
+        "2025-03-26T22": 10820735151355.129
+      },
+      "RGB Protocol": {
+        "2025-03-26T22": 94960874007692.64
+      }
+    }
+  }
+}

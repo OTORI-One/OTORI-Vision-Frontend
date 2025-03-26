@@ -1,6 +1,18 @@
 import React from 'react';
-import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline';
 import { useCurrencyToggle, Currency } from '../src/hooks/useCurrencyToggle';
+
+// Define simple arrow icons for tests
+const ArrowUpIcon = ({ className }: { className?: string }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+  </svg>
+);
+
+const ArrowDownIcon = ({ className }: { className?: string }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+  </svg>
+);
 
 export interface ChartDataItem {
   name: string;
@@ -57,7 +69,7 @@ export default function TokenExplorerModal({ isOpen, onClose, token }: TokenExpl
   };
   
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true" data-testid="token-explorer-modal">
       <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         {/* Background overlay */}
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={onClose}></div>
@@ -66,13 +78,14 @@ export default function TokenExplorerModal({ isOpen, onClose, token }: TokenExpl
         <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
           {/* Modal header */}
           <div className="flex justify-between items-start">
-            <h3 className="text-xl font-semibold text-gray-900" id="modal-title">
+            <h3 className="text-xl font-semibold text-gray-900" id="modal-title" data-testid="token-name">
               {name}
             </h3>
             <button 
               type="button" 
               className="rounded-md text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary"
               onClick={onClose}
+              data-testid="close-modal"
             >
               <span className="sr-only">Close</span>
               <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">

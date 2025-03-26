@@ -20,6 +20,8 @@ export interface Position {
   tokenAmount: number;
   description: string;
   dailyChange: number;
+  transactionId?: string;
+  address?: string;
 }
 
 export interface OVTPrice {

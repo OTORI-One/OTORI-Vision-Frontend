@@ -1,5 +1,5 @@
 import type { AppProps } from 'next/app';
-import { LaserEyesProvider } from '@omnisat/lasereyes';
+import { LaserEyesProvider, BaseNetwork } from '@omnisat/lasereyes';
 import { useEffect } from 'react';
 import { ensurePortfolioDataLoaded } from '../src/utils/portfolioLoader';
 import { useBitcoinPrice } from '../src/hooks/useBitcoinPrice';
@@ -49,14 +49,14 @@ export default function App({ Component, pageProps }: AppProps) {
   }, [btcPrice]);
   
   console.log('[_app.tsx] Initializing LaserEyesProvider with config:', {
-    network: 'testnet4',
+    network: BaseNetwork.TESTNET4,
     timestamp: new Date().toISOString()
   });
   
   return (
     <LaserEyesProvider 
       config={{ 
-        network: 'testnet4'
+        network: BaseNetwork.TESTNET4
       }}
     >
       <CurrencyProvider initialCurrency="usd">

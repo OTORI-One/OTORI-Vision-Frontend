@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import PortfolioChart from '../PortfolioChart';
 import { Currency } from '../../src/hooks/useCurrencyToggle';
 
@@ -7,7 +7,13 @@ import { Currency } from '../../src/hooks/useCurrencyToggle';
 jest.mock('../../src/hooks/useCurrencyToggle', () => ({
   useCurrencyToggle: () => ({
     currency: 'usd' as Currency,
-    formatValue: (value: number) => `$${value.toFixed(2)}`,
+    formatValue: (value: number) => {
+      // Handle undefined or null values
+      if (value === undefined || value === null) {
+        return '$0.00';
+      }
+      return `$${value.toFixed(2)}`;
+    },
   }),
 }));
 
@@ -67,18 +73,22 @@ jest.mock('recharts', () => {
       <div 
         data-testid={`bar-${dataKey}`} 
         className={name}
-        onClick={() => onClick && onClick({
-          payload: {
-            name: 'Bitcoin',
-            value: 500000,
-            current: 550000,
-            growth: 50000,
-            change: 10.0,
-            description: 'BTC',
-            tokenAmount: 1.5,
-            pricePerToken: 36666.67
+        onClick={() => {
+          if (onClick) {
+            onClick({
+              payload: {
+                name: 'Bitcoin',
+                value: 500000,
+                current: 550000,
+                growth: 50000,
+                change: 10.0,
+                description: 'BTC',
+                tokenAmount: 1.5,
+                pricePerToken: 36666.67
+              }
+            });
           }
-        })}
+        }}
       >
         {children}
       </div>
@@ -113,11 +123,11 @@ jest.mock('recharts', () => {
 // Mock the modal
 jest.mock('../TokenExplorerModal', () => ({
   __esModule: true,
-  default: ({ isOpen, onClose, tokenData }: any) => (
+  default: ({ isOpen, onClose, token }: any) => (
     isOpen ? (
       <div data-testid="token-explorer-modal">
         <button onClick={onClose} data-testid="close-modal">Close</button>
-        <div data-testid="token-name">{tokenData.name}</div>
+        <div data-testid="token-name">{token?.name || 'Mock Token'}</div>
       </div>
     ) : null
   ),
@@ -154,15 +164,19 @@ describe('PortfolioChart', () => {
     jest.clearAllMocks();
   });
 
-  it('renders the chart with provided data', () => {
-    render(<PortfolioChart {...defaultProps} />);
+  it('renders the chart with provided data', async () => {
+    await act(async () => {
+      render(<PortfolioChart {...defaultProps} />);
+    });
     expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
-    expect(screen.getByTestId('bar-value')).toBeInTheDocument();
+    expect(screen.getByTestId('bar-initialInvestment')).toBeInTheDocument();
     expect(screen.getByTestId('bar-growth')).toBeInTheDocument();
   });
 
-  it('displays the tooltip with correct data', () => {
-    render(<PortfolioChart {...defaultProps} />);
+  it('displays the tooltip with correct data', async () => {
+    await act(async () => {
+      render(<PortfolioChart {...defaultProps} />);
+    });
     const tooltip = screen.getByTestId('tooltip');
     expect(tooltip).toBeInTheDocument();
     expect(tooltip).toHaveTextContent('Bitcoin');
@@ -170,27 +184,33 @@ describe('PortfolioChart', () => {
     expect(tooltip).toHaveTextContent('Current');
   });
 
-  it('opens the token explorer modal when a bar is clicked', () => {
-    render(<PortfolioChart {...defaultProps} />);
-    // Simulate clicking on a bar by triggering the click handler
-    const valueBar = screen.getByTestId('bar-value');
-    fireEvent.click(valueBar);
+  it('opens the token explorer modal when a bar is clicked', async () => {
+    await act(async () => {
+      render(<PortfolioChart {...defaultProps} />);
+    });
+    const growthBar = screen.getByTestId('bar-growth');
+    await act(async () => {
+      fireEvent.click(growthBar);
+    });
     expect(screen.getByTestId('token-explorer-modal')).toBeInTheDocument();
     expect(screen.getByTestId('token-name')).toHaveTextContent('Bitcoin');
   });
 
-  it('closes the modal when close button is clicked', () => {
-    render(<PortfolioChart {...defaultProps} />);
-    // Open the modal
-    const valueBar = screen.getByTestId('bar-value');
-    fireEvent.click(valueBar);
+  it('closes the modal when close button is clicked', async () => {
+    await act(async () => {
+      render(<PortfolioChart {...defaultProps} />);
+    });
+    const growthBar = screen.getByTestId('bar-growth');
+    await act(async () => {
+      fireEvent.click(growthBar);
+    });
     expect(screen.getByTestId('token-explorer-modal')).toBeInTheDocument();
     
-    // Close the modal
     const closeButton = screen.getByTestId('close-modal');
-    fireEvent.click(closeButton);
+    await act(async () => {
+      fireEvent.click(closeButton);
+    });
     
-    // Modal should be closed
     expect(screen.queryByTestId('token-explorer-modal')).not.toBeInTheDocument();
   });
 }); 

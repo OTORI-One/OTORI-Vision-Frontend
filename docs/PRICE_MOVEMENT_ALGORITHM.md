@@ -56,36 +56,57 @@ The algorithm uses several mathematical techniques:
 - **Weighted Randomization**: For creating asymmetric distribution of positive vs. negative spikes
 - **Volatility Modeling**: For simulating realistic market movements
 
+## Centralized Price Service (Current Implementation)
+
+As of our latest update, we've moved from the client-side price simulation to a centralized price service architecture:
+
+### Price Service Features
+
+1. **WebSocket-Based Real-Time Updates**: Provides real-time price data to all connected clients
+2. **Centralized Price Calculation**: Ensures consistent price data across all clients
+3. **Reduced Client-Side Processing**: Moves computation to the server, improving client performance
+4. **Concurrent User Support**: Multiple users see the same consistent price data
+5. **Real-Time Price Changes**: Updates propagate instantly to all connected clients
+
+### Technical Components
+
+1. **Backend Price Service** (`backend/api/services/priceService.js`)
+   - Implements the core price movement algorithm on the server
+   - Broadcasts price updates to all connected clients via WebSockets
+   - Maintains price data integrity and persistence
+
+2. **Price API Routes** (`backend/api/routes/priceRoutes.js`)
+   - Provides HTTP endpoints for price data retrieval
+   - Manages WebSocket connections for real-time updates
+
+3. **Frontend Integration** (`frontend/src/hooks/useOVTPrice.ts`, `frontend/src/services/priceService.ts`)
+   - Connects to the WebSocket service for real-time price updates
+   - Provides a clean React hook interface for components
+   - Maintains connection state and error handling
+
+### Setup and Configuration
+
+The centralized price service is automatically set up when deploying the application, using:
+
+```bash
+# Setup the centralized price API service
+./backend/setup-price-api.sh
+```
+
 ## Usage
 
 ### Integration with Portfolio Components
 
-The algorithm is integrated into the portfolio visualization through:
+The price data is accessed through:
 
-1. **React Hook**: `usePortfolioPrices` for component integration
-2. **LocalStorage**: Data persistence between sessions
-3. **Automatic Updates**: Regular price updates at configurable intervals
-4. **Configurable Bias**: Ability to toggle the positive bias in price movements
+1. **React Hook**: `useOVTPrice` for component integration (replaced previous `usePortfolioPrices`)
+2. **WebSocket Connection**: Automatic real-time updates from the server
+3. **Price Service**: Backend service that maintains consistent price calculation
 
-### Simulation Script
+### Configuration Environment Variables
 
-A simulation script is provided for testing and visualization:
-
-```bash
-# Basic simulation (30 days)
-npx ts-node scripts/simulatePriceMovements.ts
-
-# Extended simulation (90 days)
-npx ts-node scripts/simulatePriceMovements.ts --days=90
-
-# Detailed output
-npx ts-node scripts/simulatePriceMovements.ts --verbose
-
-# Generate chart data (CSV format)
-npx ts-node scripts/simulatePriceMovements.ts --chart > price_data.csv
-
-# Disable positive bias
-npx ts-node scripts/simulatePriceMovements.ts --no-positive-bias
+```
+NEXT_PUBLIC_PRICE_API_URL=http://localhost:3030/api/price
 ```
 
 ## Performance Metrics
@@ -106,11 +127,23 @@ The algorithm can be extended in several ways:
 3. **Position-specific Parameters**: Different volatility profiles per position
 4. **Advanced Simulation**: Monte Carlo simulations for risk analysis
 5. **Market Regime Modeling**: Add support for bull/bear market regime shifts
+6. **Enhanced WebSocket Infrastructure**: Scale WebSocket connections for larger user bases
+7. **Fault Tolerance**: Implement recovery mechanisms for service interruptions
 
 ## Implementation Files
 
-- `src/utils/priceMovement.ts` - Core algorithm implementation
-- `src/hooks/usePortfolioPrices.ts` - React hook for component integration
+### Server-side (Centralized)
+- `backend/api/services/priceService.js` - Core price service implementation
+- `backend/api/routes/priceRoutes.js` - API routes for price data
+- `backend/api/index.js` - Server setup and WebSocket initialization
+
+### Client-side
+- `frontend/src/services/priceService.ts` - WebSocket client and service integration
+- `frontend/src/hooks/useOVTPrice.ts` - React hook for component integration
+
+### Legacy (Pre-Centralization)
+- `src/utils/priceMovement.ts` - Previous client-side algorithm implementation
+- `src/hooks/usePortfolioPrices.ts` - Previous React hook for component integration
 - `src/utils/portfolioLoader.ts` - Data loading utilities
 - `scripts/simulatePriceMovements.ts` - Simulation script for testing
 

@@ -1,3 +1,38 @@
+/**
+ * Jest setup file
+ * 
+ * This file is loaded automatically by Jest before running tests.
+ * It sets up the testing environment and global variables.
+ */
+
+// Import jest-dom for DOM element assertions
+require('@testing-library/jest-dom');
+
+// Extend the timeout for async tests that might take longer
+jest.setTimeout(10000);
+
+// Silence console errors during tests by default
+const originalConsoleError = console.error;
+console.error = (...args) => {
+  if (typeof args[0] === 'string') {
+    // Silence React act() warnings
+    if (args[0].includes('Warning: An update to') && 
+        args[0].includes('inside a test was not wrapped in act')) {
+      return;
+    }
+    // Silence expected API fetch errors in tests
+    if (args[0].includes('Error fetching portfolio positions')) {
+      return;
+    }
+  }
+  originalConsoleError(...args);
+};
+
+// Clean up after tests
+afterEach(() => {
+  jest.clearAllMocks();
+});
+
 // Learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom'
 

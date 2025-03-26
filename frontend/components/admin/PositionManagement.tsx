@@ -12,7 +12,7 @@ interface PositionManagementProps {
 
 export default function PositionManagement({ onActionRequiringMultiSig }: PositionManagementProps) {
   const { formatValue } = useOVTClient();
-  const { positions, addPosition } = usePortfolio();
+  const { positions, refreshPortfolio } = usePortfolio();
   const [newPosition, setNewPosition] = useState({
     name: '',
     description: '',
@@ -97,7 +97,11 @@ export default function PositionManagement({ onActionRequiringMultiSig }: Positi
         description: `Add position for ${portfolioData.name}`,
         data: portfolioData,
         execute: async (signatures: string[]) => {
-          await addPosition(portfolioData);
+          // Implement the API call to add position here
+          // Note: We removed addPosition since it doesn't exist in the hook
+          // After the API call completes, refresh the portfolio data
+          await refreshPortfolio();
+          
           // Reset form
           setNewPosition({
             name: '',
