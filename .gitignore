@@ -58,7 +58,14 @@ out/
 prompt_docs/
 scripts/archive/
 
-# Backup and old directories
+# Backup and old files/directories
+*_old
+*_old.*
 *_old/
+
 *_backup/
 *_archive/
+
+# Electrs data
+~/.electrs/config.toml
+~/electrsstart-electrs.sh

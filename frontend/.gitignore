@@ -40,6 +40,12 @@ position_migration_results.json
 *.tmp
 *.bak
 .temp/
+*_old
+*_old.*
+*_old/
+*old_*
+*old_*.*
+*old_*/
 
 # Coverage directory used by tools like istanbul
 coverage/
