@@ -1,3 +1,105 @@
+# OTORI Vision Monorepo
+
+This repository contains the full OTORI Vision application, comprising both frontend and backend components.
+
+## Repository Structure
+
+```
+OTORI-Vision/
+├── frontend/       (Next.js application)
+├── backend/        (Express API and scripts)
+│   ├── api/        (API services)
+│   └── scripts/    (Utility scripts)
+├── program/        (Arch Network program)
+├── shared/         (Shared utilities and types)
+└── docs/           (Documentation)
+```
+
+## Development
+
+### Prerequisites
+
+- Node.js 18+
+- npm 9+
+- Bitcoin Signet setup (for runes functionality)
+- Arch Network SDK (for program development)
+
+### Setup
+
+1. Clone the repository
+
+```bash
+git clone https://github.com/your-username/OTORI-Vision.git
+cd OTORI-Vision
+```
+
+2. Install dependencies
+
+```bash
+npm install
+```
+
+3. Set up environment variables
+
+```bash
+cp .env.example .env.local
+# Edit .env.local with your configuration
+```
+
+### Running the Application
+
+#### Development mode
+
+To run both frontend and backend in development mode:
+
+```bash
+npm run dev
+```
+
+To run only the frontend:
+
+```bash
+npm run frontend:dev
+```
+
+To run only the backend:
+
+```bash
+npm run backend:dev
+```
+
+#### Production mode
+
+Build and start the application:
+
+```bash
+npm run build
+npm start
+```
+
+## Backend Services
+
+The backend includes:
+
+1. **Runes API** - API for managing OTORI Vision Token (OVT) runes
+2. **Distribution Scripts** - Scripts for distributing tokens and managing liquidity
+
+## Frontend Application
+
+The frontend is a Next.js application that provides:
+
+1. **Portfolio Management** - View and manage your OVT portfolio
+2. **Transaction History** - View transaction history and activity
+3. **Analytics** - Token supply, distribution, and other analytics
+
+## Documentation
+
+For more detailed documentation, please refer to the files in the `docs/` directory:
+
+- [LP Wallet Setup](docs/LP_WALLET.md)
+- [Rune Integration](docs/RUNE_INTEGRATION.md)
+- [Price Movement Algorithm](docs/PRICE_MOVEMENT_ALGORITHM.md)
+
 # OTORI Vision Token (OVT) Frontend
 
 ## Overview
@@ -67,6 +169,35 @@ In hybrid mode, you can configure which aspects of the application use real vs. 
 - `NEXT_PUBLIC_TOKEN_SUPPLY_DATA_SOURCE`: Controls token supply data
 
 For detailed information about the hybrid mode implementation, see [docs/HYBRID_MODE.md](docs/HYBRID_MODE.md).
+
+## LP Wallet Management
+
+This project includes tools for managing the Liquidity Pool (LP) wallet, which is used for trading simulation.
+
+### LP Wallet Setup
+
+Follow these steps to set up the LP wallet:
+
+1. See [LP Wallet Documentation](./docs/LP_WALLET.md) for detailed setup instructions
+2. Configure your LP wallet address in environment variables or update it directly in the configuration files
+3. Run distribution scripts to allocate Runes tokens to the LP wallet
+
+### LP Distribution Tools
+
+The following npm scripts are available for managing LP wallet and token distribution:
+
+```bash
+# Distribute Runes tokens to the LP wallet
+npm run lp-distribute
+
+# Manage PSBTs for LP wallet
+npm run lp-manage-psbts
+
+# Show LP wallet setup help
+npm run lp-setup-help
+```
+
+See [LP Wallet Documentation](./docs/LP_WALLET.md) for detailed usage instructions.
 
 ## Scripts
 
@@ -140,4 +271,34 @@ To deploy the application:
 
 ## License
 
-This project is licensed under the ISC License. 
+This project is licensed under the ISC License.
+
+## Testing
+
+### Unit Tests
+
+Run unit tests with mock data:
+
+```bash
+npm run test:unit
+```
+
+These tests use mock implementations of the RuneClient and other dependencies to ensure fast, reliable testing without external dependencies.
+
+### Integration Tests
+
+Run integration tests with real backend (requires OrdPi to be running):
+
+```bash
+npm run test:integration
+```
+
+These tests connect to the actual OrdPi backend when available to validate real integrations. If the OrdPi is not available, they will still run but in mock mode.
+
+### All Tests
+
+Run both unit and integration tests:
+
+```bash
+npm run test:all
+``` 

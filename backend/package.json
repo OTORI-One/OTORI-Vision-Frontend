@@ -1,0 +1,16 @@
+{
+  "name": "otori-vision-backend",
+  "version": "1.0.0",
+  "description": "Backend services for OTORI Vision",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js",
+    "dev": "node api/runes_API.js",
+    "lp-distribute": "node scripts/distribute_lp_runes.js",
+    "lp-manage-psbts": "node scripts/manage_lp_psbts.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "dotenv": "^16.4.7"
+  }
+} 

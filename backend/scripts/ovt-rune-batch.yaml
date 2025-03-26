@@ -1,0 +1,27 @@
+# Batch file for etching OVT rune with logo
+# Mode for separate outputs
+mode: separate-outputs
+
+# parent inscriptions:
+parents:
+  - 68f227efe2f32108fce95d6a9472856aa4c5183929ce568169bd883cce0853e8i0
+
+# Postage for each inscription
+postage: 8888
+
+# Rune to etch
+etching:
+  rune: OTORI•VISION•TOKEN
+  divisibility: 2
+  premine: 2100000.00
+  supply: 2100000.00  # Initial supply equals premine
+  symbol: ⊙
+  turbo: true
+  # No terms - this means only OTORI admins who hold the tokens can distribute them
+# Inscriptions to include
+inscriptions:
+  - file: ./OTORI-bird-LIVE-small-compressed.webp
+    metadata:
+      title: OTORI Vision Token Logo
+      description: OTORI Vision Token (OVT) - The liquidity (and limited partner) token for the OTORI on chain VC fund. 
+    destination: tb1p3rjwdglnrfgu54lh7mqvsnzhw523u03ahwesjasa2m66krx4sxzs4l2h72

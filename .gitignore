@@ -56,3 +56,9 @@ out/
 
 # Local Files
 prompt_docs/
+scripts/archive/
+
+# Backup and old directories
+*_old/
+*_backup/
+*_archive/

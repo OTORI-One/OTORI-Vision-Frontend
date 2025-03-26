@@ -1,0 +1,23 @@
+[package]
+name = "otori-program"
+version = "0.1.0"
+edition = "2021"
+description = "OTORI Vision Token (OVT) Program using Runes Protocol"
+
+[lib]
+name = "otori_program"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+# Minimal dependencies for testnet deployment
+[dependencies]
+arch_program = { path = "../arch-sdk/program", version = "0.3.2" }
+getrandom = { version = "0.2", features = ["js", "custom"] }
+
+[features]
+default = ["testnet"]
+testnet = []
+
+# Configure the build for WebAssembly target
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js", "wasm-bindgen"] }

@@ -1,0 +1,112 @@
+use arch_program::{
+    program_error::ProgramError,
+    account::AccountInfo,
+    pubkey::Pubkey,
+};
+
+// Define a Context struct similar to what's expected
+pub struct Context<'a> {
+    pub program_id: &'a Pubkey,
+    pub accounts: &'a [AccountInfo<'a>],
+}
+
+impl<'a> Context<'a> {
+    pub fn new(program_id: &'a Pubkey, accounts: &'a [AccountInfo<'a>]) -> Self {
+        Self { program_id, accounts }
+    }
+    
+    pub fn get(&self, index: usize) -> Result<&AccountInfo<'a>, ProgramError> {
+        if index >= self.accounts.len() {
+            return Err(ProgramError::NotEnoughAccountKeys);
+        }
+        Ok(&self.accounts[index])
+    }
+}
+
+// Extension trait for AccountInfo to add get_data and set_data methods
+pub trait AccountInfoExt<'a> {
+    fn get_data<T: borsh::BorshDeserialize>(&self) -> Result<T, ProgramError>;
+    fn set_data<T: borsh::BorshSerialize>(&self, data: &T) -> Result<(), ProgramError>;
+}
+
+impl<'a> AccountInfoExt<'a> for AccountInfo<'a> {
+    fn get_data<T: borsh::BorshDeserialize>(&self) -> Result<T, ProgramError> {
+        let data = self.try_borrow_data().map_err(|_| ProgramError::AccountBorrowFailed)?;
+        borsh::BorshDeserialize::try_from_slice(&data)
+            .map_err(|_| ProgramError::InvalidAccountData)
+    }
+
+    fn set_data<T: borsh::BorshSerialize>(&self, data: &T) -> Result<(), ProgramError> {
+        let serialized = borsh::to_vec(data)
+            .map_err(|_| ProgramError::InvalidAccountData)?;
+        
+        let mut account_data = self.try_borrow_mut_data()
+            .map_err(|_| ProgramError::AccountBorrowFailed)?;
+            
+        if account_data.len() < serialized.len() {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        
+        account_data[..serialized.len()].copy_from_slice(&serialized);
+        Ok(())
+    }
+}
+
+// Mock implementation of Clock
+pub struct Clock {
+    pub unix_timestamp: i64,
+}
+
+impl Clock {
+    pub fn from_account_info(_account_info: &AccountInfo) -> Result<Self, ProgramError> {
+        // In a real implementation, this would deserialize from account data
+        // For now, we'll just return the current time
+        Ok(Self {
+            unix_timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_err(|_| ProgramError::Custom(1001))?
+                .as_secs() as i64,
+        })
+    }
+}
+
+pub mod error;
+pub mod state;
+pub mod instructions;
+pub mod utils;
+
+// Only include bitcoin module when not compiling for WebAssembly
+#[cfg(not(target_arch = "wasm32"))]
+pub mod bitcoin;
+
+// Only include runes_client when not compiling for WebAssembly
+#[cfg(not(target_arch = "wasm32"))]
+pub mod runes_client;
+
+// Import the Program trait
+use state::Program;
+
+// Re-export key types
+#[cfg(not(target_arch = "wasm32"))]
+pub use bitcoin::{
+    rpc::{BitcoinRpcClient, BitcoinRpcConfig, BitcoinRpcError},
+    utxo::{UtxoMeta, UtxoStatus, TreasuryPayment},
+    mock::{MockBitcoinNode, MockBitcoinRpcClient},
+};
+
+pub use state::{OVTState, OVTProgram};
+pub use instructions::OVTInstruction;
+
+/// OVT Token identifier in Runes protocol
+pub const OVT_RUNE_SYMBOL: &str = "OVT";
+pub const OVT_DECIMALS: u8 = 8;
+
+// Entry point for the program
+#[no_mangle]
+pub fn process_instruction<'a>(
+    program_id: &'a Pubkey,
+    accounts: &'a [AccountInfo<'a>],
+    instruction_data: &[u8],
+) -> Result<(), ProgramError> {
+    OVTProgram::process_instruction(program_id, accounts, instruction_data)
+} 
