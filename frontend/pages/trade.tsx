@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import TradingInterface from '../components/TradingInterface';
-import { useOVTClient } from '../src/hooks/useOVTClient';
+import { useOVTPrice } from '../src/hooks/useOVTPrice';
 import { useLaserEyes } from '@omnisat/lasereyes';
 import { getDataSourceIndicator } from '../src/lib/hybridModeUtils';
 import WalletConnector from '../components/WalletConnector';

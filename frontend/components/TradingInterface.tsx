@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTradingModule } from '../src/hooks/useTradingModule';
-import { useOVTClient, SATS_PER_BTC, updateGlobalOVTPrice } from '../src/hooks/useOVTClient';
+import { useOVTPrice } from '../src/hooks/useOVTPrice';
+import { useBitcoinPrice } from '../src/hooks/useBitcoinPrice';
+import { SATS_PER_BTC, updateGlobalOVTPrice } from '../src/hooks/useOVTClient';
 import { Switch } from '@headlessui/react';
 import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline';
 import DataSourceIndicator from './DataSourceIndicator';
@@ -43,15 +45,9 @@ export function TradingInterface() {
   } = useTradingModule();
   
   // Use our hooks for consistent data across the app
-  const { formatValue: clientFormatValue, baseCurrency, btcPrice } = useOVTClient();
-  const { formatValue } = useCurrencyToggle();
+  const { price: ovtPrice, btcPriceFormatted, usdPriceFormatted } = useOVTPrice();
+  const { currency, formatValue } = useCurrencyToggle();
   const { positions } = usePortfolio();
-  
-  // Get the OVT price from portfolio positions to ensure consistency
-  const ovtPrice = useMemo(() => {
-    // Use the first position (OVT) from our central portfolio data
-    return positions.length > 0 ? positions[0].pricePerToken : 300;
-  }, [positions]);
   
   // State for market price
   const [marketPrice, setMarketPrice] = useState<number>(0);
@@ -73,8 +69,8 @@ export function TradingInterface() {
   
   // Log when currency changes to ensure component is updating
   useEffect(() => {
-    console.log('TradingInterface: Currency changed to', baseCurrency);
-  }, [baseCurrency]);
+    console.log('TradingInterface: Currency changed to', currency);
+  }, [currency]);
   
   // Fetch market price on component mount
   useEffect(() => {
@@ -274,7 +270,7 @@ export function TradingInterface() {
   // Format price according to selected currency
   const formatCurrencyValue = (satValue: number | null): string => {
     if (satValue === null || isNaN(satValue) || satValue <= 0) {
-      return baseCurrency === 'usd' ? '$0.00' : '0 sats';
+      return currency === 'usd' ? '$0.00' : '0 sats';
     }
     return formatValue(satValue);
   };
@@ -327,7 +323,7 @@ export function TradingInterface() {
       {/* Market price display */}
       <div className="text-center mb-2">
         <p className="text-gray-600">Current Market Price</p>
-        <p className="text-xl font-bold currency-dependent" data-currency={baseCurrency}>
+        <p className="text-xl font-bold currency-dependent" data-currency={currency}>
           {displayedMarketPrice} per OVT
         </p>
       </div>

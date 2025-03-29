@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { UNISAT, XVERSE, useLaserEyes, ProviderType } from '@omnisat/lasereyes';
 
 interface WalletConnectorProps {
@@ -11,14 +11,15 @@ export default function WalletConnector({ onConnect, onDisconnect, connectedAddr
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { connect, disconnect, address, network } = useLaserEyes();
+  // Add a ref to track connection state
+  const previousConnectedRef = useRef<string | null>(null);
   
-  // Event emitter for wallet connections
+  // Event emitter for wallet connections - fixed to avoid state updates during render
   useEffect(() => {
-    if (address && !connectedAddress) {
-      // When the wallet connects and we have an onConnect callback
-      if (onConnect) {
-        onConnect(address);
-      }
+    // Only call onConnect if we have a new address and it's not already connected
+    if (address && !connectedAddress && address !== previousConnectedRef.current) {
+      previousConnectedRef.current = address;
+      onConnect(address);
     }
   }, [address, connectedAddress, onConnect]);
   
@@ -131,13 +132,6 @@ export default function WalletConnector({ onConnect, onDisconnect, connectedAddr
             <h3 className="text-lg font-semibold text-primary mb-4">Connect Wallet</h3>
             
             <div className="space-y-2">
-              <button
-                onClick={() => handleConnect("laser" as ProviderType)}
-                className="w-full flex items-center justify-between px-4 py-2 text-primary bg-white border border-primary rounded-md hover:bg-primary hover:bg-opacity-5 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50"
-              >
-                <span>Laser</span>
-                <img src="/icons/laser.svg" alt="Laser" className="h-5 w-5" />
-              </button>
               
               <button
                 onClick={() => handleConnect(XVERSE)}

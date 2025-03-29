@@ -27,8 +27,22 @@ export function useOVTPrice() {
       try {
         setIsLoading(true);
         
-        // Check if we should use mock data
+        // Attempt to fetch from the API first
+        try {
+          // Fetch from the API - this will now be the primary approach
+          const data = await priceService.getOVTPrice();
+          setOvtPrice(data);
+          priceService.cacheOVTPrice(data);
+          setError(null);
+          return; // Exit early if API call succeeds
+        } catch (apiError) {
+          console.warn('Failed to fetch from API, will use mock data if enabled:', apiError);
+          // Continue to mock data fallback if the API call fails
+        }
+
+        // Check if we should use mock data (only as fallback)
         if (shouldUseMockData('tokenSupply')) {
+          console.log('Using mock OVT price data as fallback');
           // For mock data, use a static value with mock 24h change
           const mockOVTPrice: OVTPrice = {
             price: 336666.67, // Match our mock data defaults
@@ -38,6 +52,7 @@ export function useOVTPrice() {
             usdPriceFormatted: '$0.16',
             dailyChange: 7.59, // Mock 24h change
             lastUpdate: Date.now(),
+            circulatingSupply: 1000000, // Default 1M circulating supply for testnet
             timestamp: Date.now()
           };
           
@@ -45,11 +60,8 @@ export function useOVTPrice() {
           priceService.cacheOVTPrice(mockOVTPrice);
           setError(null);
         } else {
-          // Fetch from the API
-          const data = await priceService.getOVTPrice();
-          setOvtPrice(data);
-          priceService.cacheOVTPrice(data);
-          setError(null);
+          // If we're here, the API failed and mock mode is disabled
+          throw new Error('API request failed and mock mode is disabled');
         }
       } catch (err) {
         console.error('Error fetching OVT price:', err);
@@ -90,6 +102,7 @@ export function useOVTPrice() {
     dailyChangeFormatted,
     isPositiveChange: (ovtPrice?.dailyChange || 0) >= 0,
     lastUpdate: ovtPrice?.lastUpdate || 0,
+    circulatingSupply: ovtPrice?.circulatingSupply || 1000000,
     isLoading,
     error
   };

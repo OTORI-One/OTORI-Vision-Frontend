@@ -15,7 +15,6 @@ import { isAdminWallet } from '../src/utils/adminUtils';
 import { getGlobalNAVReference, updateGlobalNAVReference } from '../src/utils/priceMovement';
 import CurrencyToggle from '../components/CurrencyToggle';
 import NAVDisplay from '../components/NAVDisplay';
-import useNAV from '../src/hooks/useNAV';
 import { useCurrencyToggle } from '../src/hooks/useCurrencyToggle';
 import { usePortfolio } from '../src/hooks/usePortfolio';
 import { formatValue } from '../src/lib/formatting';
@@ -31,28 +30,37 @@ export default function Dashboard() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [animatingNav, setAnimatingNav] = useState(false);
   const previousNavRef = useRef<number>(0);
-  const [formattedOvtPrice, setFormattedOvtPrice] = useState<string>(''); // For hydration safety
-  
-  // Use the new centralized NAV hook
-  const { nav, refreshNAV } = useNAV();
+  // Add a ref to track currency changes
+  const lastCurrencyRef = useRef<string | null>(null);
   
   // Use the currency toggle hook
   const { currency, toggleCurrency, formatValue: formatCurrencyValue } = useCurrencyToggle();
   
   // Get OVT price information
-  const { dailyChange, dailyChangeFormatted, isPositiveChange } = useOVTPrice();
-  
+  const { 
+    price, 
+    btcPriceFormatted, 
+    usdPriceFormatted, 
+    dailyChange, 
+    dailyChangeFormatted, 
+    isPositiveChange 
+  } = useOVTPrice();
+
+  // Get OVTClient data with useEffect for baseCurrency syncing instead of direct use
+  const ovtClientData = useOVTClient();
   const { 
     isLoading, 
     error, 
     navData, 
     formatValue,
-    baseCurrency,
-    setBaseCurrency,
     fetchNAV,
     ovtPrice: clientOvtPrice,
     formattedOvtPrice: clientFormattedOvtPrice
-  } = useOVTClient();
+  } = ovtClientData;
+  
+  // Extract setBaseCurrency to use it safely in an effect
+  const { setBaseCurrency, baseCurrency } = ovtClientData;
+  
   const { price: btcPrice } = useBitcoinPrice();
   const { network, address } = useLaserEyes();
   
@@ -82,93 +90,30 @@ export default function Dashboard() {
     }
   }, [network, address]);
   
-  // Periodically refresh NAV data
+  // Periodically refresh data from server
   useEffect(() => {
-    // Get initial NAV data
-    refreshNAV();
+    // Initial fetch
+    fetchNAV();
     
     // Set up interval for refreshing
     const intervalId = setInterval(() => {
-      refreshNAV();
-    }, 30000); // Refresh every 30 seconds
+      fetchNAV();
+    }, 60000); // Refresh every 60 seconds
     
     return () => {
       if (intervalId) {
         clearInterval(intervalId);
       }
     };
-  }, [refreshNAV]);
+  }, [fetchNAV]);
   
   // Sync currency toggle with OVT client
   useEffect(() => {
-    if (baseCurrency && baseCurrency !== currency) {
+    if (baseCurrency && currency && baseCurrency !== currency && currency !== lastCurrencyRef.current) {
+      lastCurrencyRef.current = currency;
       setBaseCurrency(currency);
     }
   }, [currency, baseCurrency, setBaseCurrency]);
-  
-  // Legacy code that gets NAV data from useOVTClient
-  // This will be kept for backward compatibility until fully migrated
-  useEffect(() => {
-    // Fetch NAV data initially
-    fetchNAV().catch(err => {
-      console.error('Failed to fetch NAV data:', err);
-      setNetworkError('Failed to fetch NAV data. Using cached data.');
-    });
-    
-    // Set up interval to refresh NAV data
-    const refreshIntervalId = setInterval(() => {
-      fetchNAV().catch(err => {
-        console.error('Failed to refresh NAV data:', err);
-        // Don't show error for refresh failures
-      });
-    }, 60000); // Every 60 seconds
-    
-    return () => {
-      if (refreshIntervalId) {
-        clearInterval(refreshIntervalId);
-      }
-    };
-  }, [fetchNAV]);
-
-  // Format OVT price using the centralized currency formatter - CLIENT SIDE ONLY
-  useEffect(() => {
-    // Start with a reasonable default OVT price (in sats)
-    const DEFAULT_OVT_PRICE_SATS = 300;
-    let priceToDisplay = DEFAULT_OVT_PRICE_SATS;
-    
-    // Try to get the price from portfolio data
-    if (positions && positions.length > 0) {
-      // Calculate the average price per token from all positions
-      let totalTokenAmount = 0;
-      let weightedPriceSum = 0;
-      
-      positions.forEach(position => {
-        if (position.tokenAmount > 0 && position.pricePerToken > 0) {
-          totalTokenAmount += position.tokenAmount;
-          weightedPriceSum += position.pricePerToken * position.tokenAmount;
-        }
-      });
-      
-      if (totalTokenAmount > 0) {
-        priceToDisplay = weightedPriceSum / totalTokenAmount;
-      } else {
-        // Fallback to the first position with valid price if any
-        const posWithPrice = positions.find(p => p.pricePerToken > 0);
-        if (posWithPrice) {
-          priceToDisplay = posWithPrice.pricePerToken;
-        }
-      }
-    } 
-    // Only if no other sources are available, try nav or client OVT price
-    else if (nav && nav.pricePerToken && nav.pricePerToken > 0 && nav.pricePerToken < 1000000) {
-      priceToDisplay = nav.pricePerToken;
-    } else if (clientOvtPrice && clientOvtPrice > 0 && clientOvtPrice < 1000000) {
-      priceToDisplay = clientOvtPrice;
-    }
-    
-    // Format the price for display
-    setFormattedOvtPrice(formatCurrencyValue(priceToDisplay));
-  }, [formatCurrencyValue, nav, clientOvtPrice, positions]);
 
   const handleConnectWallet = (address: string) => {
     setConnectedAddress(address);
@@ -342,7 +287,7 @@ export default function Dashboard() {
                 <div className="flex justify-between items-center">
                   <span className="text-primary">Current Price:</span>
                   <span className="text-primary font-medium text-lg">
-                    {formattedOvtPrice || formatCurrencyValue(DEFAULT_OVT_PRICE)}
+                    {currency === 'usd' ? usdPriceFormatted : btcPriceFormatted}
                   </span>
                 </div>
                 

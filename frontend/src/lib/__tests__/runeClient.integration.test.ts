@@ -9,7 +9,7 @@ import { describe, expect, test, beforeAll } from '@jest/globals';
 
 // Constants
 const OVT_RUNE_ID = '240249:101';
-const BACKEND_URL = process.env.ORDPI_API_URL || 'http://localhost:9001';
+const BACKEND_URL = process.env.ORDPI_API_URL || 'http://localhost:9191';
 const SHOULD_RUN_INTEGRATION_TESTS = process.env.RUN_INTEGRATION_TESTS === 'true';
 
 // Helper to check if the backend is available

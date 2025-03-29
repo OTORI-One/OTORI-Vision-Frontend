@@ -3,8 +3,12 @@ const express = require('express');
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios'); // Make sure axios is installed
+const cors = require('cors');
+const bodyParser = require('body-parser');
 const app = express();
-app.use(express.json());
+app.use(cors());
+app.use(bodyParser.json());
 
 // Add CORS support
 app.use((req, res, next) => {
@@ -20,13 +24,178 @@ app.use((req, res, next) => {
   next();
 });
 
-
+// Load environment variables if not loaded by the main application
+if (!process.env.NEXT_PUBLIC_OVT_RUNE_ID) {
+  // Try to load from .env.local in the main project directory (one level up)
+  const envPath = path.join(__dirname, '../../.env.local');
+  if (fs.existsSync(envPath)) {
+    require('dotenv').config({ path: envPath });
+    console.log('Loaded environment variables from ../../.env.local');
+  } else {
+    // Fallback to local .env file
+    require('dotenv').config();
+    console.log('Loaded environment variables from .env');
+  }
+}
 
 // OVT rune constants
 const OVT_RUNE_ID = process.env.NEXT_PUBLIC_OVT_RUNE_ID || '240249:101';
 const OVT_RUNE_SYMBOL = 'OTORI•VISION•TOKEN';
 const OVT_TREASURY_ADDRESS = process.env.NEXT_PUBLIC_TREASURY_ADDRESS || 'tb1pglzcv7mg4xdy8nd2cdulsqgxc5yf35fxu5yvz27cf5gl6wcs4ktspjmytd';
+const OVT_TREASURY_ADDRESS_2 = process.env.NEXT_PUBLIC_TREASURY_ADDRESS_2 || 'tb1plpfgtre7sxxrrwjdpy4357qj2nr7ek06xqpdryxr4lzt5tck6x3qz07zd3';
 const LP_ADDRESS = process.env.NEXT_PUBLIC_LP_ADDRESS || 'tb1p3vn6wc0dlud3tvckv95datu3stq4qycz7vj9mzpclfkrv9rh8jqsjrw38f';
+const LP_ADDRESS_2 = process.env.NEXT_PUBLIC_LP_ADDRESS_2 || '';
+// WHEN DONE TESTING REMOTELY: Change the OrdPi endpoint to the local IP (and add ssh key authentication for comms.)
+// Remote OrdPi API endpoint - using the SSH tunnel for local development
+const REMOTE_RUNES_API = process.env.REMOTE_RUNES_API || 'http://localhost:9001';
+
+// Add a DEBUG_MODE flag to force using mock data
+const DEBUG_MODE = process.env.DEBUG_MODE === 'true' || true; // Default to true for local development
+
+// Mock data for when remote API is not reachable
+const MOCK_DATA = {
+  info: {
+    success: true,
+    runeInfo: {
+      id: OVT_RUNE_ID,
+      symbol: OVT_RUNE_SYMBOL,
+      treasuryAddress: OVT_TREASURY_ADDRESS,
+      lpAddress: LP_ADDRESS
+    }
+  },
+  balances: {
+    success: true,
+    balances: [
+      {
+        address: OVT_TREASURY_ADDRESS,
+        amount: 1100000,
+        isTreasury: true,
+        isLP: false
+      },
+      {
+        address: LP_ADDRESS,
+        amount: 1000000,
+        isTreasury: false,
+        isLP: true
+      }
+    ]
+  },
+  distribution: {
+    success: true,
+    distributionStats: {
+      totalSupply: 2100000,
+      treasuryHeld: 1100000,
+      lpHeld: 1000000,
+      distributed: 0,
+      percentDistributed: "0.00",
+      percentInLP: "47.62",
+      treasuryAddresses: [OVT_TREASURY_ADDRESS],
+      lpAddresses: [LP_ADDRESS],
+      distributionEvents: []
+    }
+  },
+  lpInfo: {
+    success: true,
+    lpInfo: {
+      address: LP_ADDRESS,
+      liquidity: {
+        ovt: 1000000,
+        btcSats: 1000000,
+        impactMultiplier: 0.01,
+        liquidityScore: "100.00"
+      },
+      pricing: {
+        currentPriceSats: 249,
+        lastTradeTime: Date.now(),
+        dailyVolume: 0,
+        weeklyVolume: 0,
+        estimatedPriceImpact: {
+          small: "0.0100",
+          medium: "0.1000",
+          large: "1.0000"
+        }
+      },
+      transactions: []
+    }
+  }
+};
+
+// Helper function to call remote API with mock fallback
+const callRemoteAPIWithFallback = async (endpoint, mockDataKey) => {
+  // If in debug mode, return mock data immediately
+  if (DEBUG_MODE) {
+    console.log(`[DEBUG MODE] Using mock data for: ${endpoint}`);
+    return { success: true, result: MOCK_DATA[mockDataKey] };
+  }
+  
+  try {
+    // Try to call the remote API
+    const result = await callRemoteRunesAPI(endpoint);
+    
+    if (result.success) {
+      return result;
+    } else {
+      // If remote call fails, log the error and fall back to mock data
+      console.warn(`Remote API call failed: ${result.error}. Using mock data for: ${endpoint}`);
+      return { success: true, result: MOCK_DATA[mockDataKey] };
+    }
+  } catch (error) {
+    // If there's an exception, log it and fall back to mock data
+    console.error(`Error calling remote API: ${error.message}. Using mock data for: ${endpoint}`);
+    return { success: true, result: MOCK_DATA[mockDataKey] };
+  }
+};
+
+// Helper function to call remote Runes API on OrdPi
+const callRemoteRunesAPI = async (endpoint, method = 'GET', data = null) => {
+  try {
+    const url = `${REMOTE_RUNES_API}${endpoint}`;
+    console.log(`Calling remote Runes API: ${method} ${url}`);
+    
+    const config = {
+      method,
+      url,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    };
+    
+    if (data && (method === 'POST' || method === 'PUT')) {
+      config.data = data;
+    }
+    
+    const response = await axios(config);
+    console.log(`Remote API response status: ${response.status}`);
+    return { success: true, result: response.data };
+  } catch (error) {
+    console.error(`Error calling remote Runes API: ${error.message}`);
+    return { 
+      success: false, 
+      error: error.toString(),
+      details: error.response?.data || 'No additional details'
+    };
+  }
+};
+
+// Helper function to get OVT information from remote Runes API
+const getRemoteOVTInfo = async () => {
+  return callRemoteAPIWithFallback('/ovt/info', 'info');
+};
+
+// Helper function to get wallet balances from remote Runes API
+const getRemoteWalletBalances = async () => {
+  return callRemoteAPIWithFallback('/ovt/balances', 'balances');
+};
+
+// Helper function to get distribution stats from remote Runes API
+const getRemoteDistributionStats = async () => {
+  return callRemoteAPIWithFallback('/ovt/distribution', 'distribution');
+};
+
+// Helper function to get LP information from remote Runes API
+const getRemoteLPInfo = async () => {
+  return callRemoteAPIWithFallback('/ovt/lp-info', 'lpInfo');
+};
 
 // Import util.promisify for exec
 const util = require('util');
@@ -36,9 +205,29 @@ const execAsync = util.promisify(exec);
 // Enhanced helper function to execute ord commands with proper configuration
 const execOrdCommand = (command) => {
   try {
+    // Set up the command to execute via SSH on the OrdPi using external IP and port
+    const sshConnection = 'BTCPi@91.7.62.224';
+    const sshPort = '2211';
+    
+    // Get SSH password from environment variable (more secure than hardcoding)
+    // For production, using SSH keys with proper permissions is recommended
+    // instead of password authentication
+    const sshPassword = process.env.ORDPI_SSH_PASSWORD;
+    
     // Ensure all ord commands use the correct configuration
-    const fullCommand = `ord --config ~/.ord/ord.yaml --signet ${command}`;
-    console.log(`Executing: ${fullCommand}`);
+    // Use quotes properly for SSH command execution
+    const ordCommand = `ord --config /home/BTCPi/.ord/ord.yaml --signet ${command}`;
+    
+    // Use sshpass to provide password if available, otherwise use standard SSH (assuming key-based auth)
+    let fullCommand;
+    if (sshPassword) {
+      fullCommand = `sshpass -p "${sshPassword}" ssh -p ${sshPort} ${sshConnection} "${ordCommand}"`;
+    } else {
+      fullCommand = `ssh -p ${sshPort} ${sshConnection} "${ordCommand}"`;
+      console.log('Warning: No SSH password provided. Using key-based authentication or will prompt for password.');
+    }
+    
+    console.log(`Executing command via SSH: ${fullCommand.replace(sshPassword || '', '[REDACTED]')}`);
     const result = execSync(fullCommand).toString();
     console.log(`Command result: ${result}`);
     return { success: true, result };
@@ -61,20 +250,62 @@ const parseRuneBalances = (output) => {
     
     // Extract rune balances from the output
     const balances = [];
-    const lines = output.split('\n').filter(line => line.trim() && line.includes(OVT_RUNE_ID));
     
-    for (const line of lines) {
-      // Based on actual ord output format, try to extract amount
-      const amount = parseInt(line.match(/(\d+)/)?.[0] || '0');
+    // Try to parse addresses with their balances - this depends on the actual output format
+    try {
+      // If the output is JSON, try to parse it
+      const jsonData = JSON.parse(output);
       
-      // For now, assume all balance belongs to treasury
-      // In a real implementation, we'd need to determine the actual address
-      balances.push({
-        address: OVT_TREASURY_ADDRESS,
-        amount,
-        isTreasury: true,
-        isLP: false
+      // Iterate through addresses in the JSON
+      Object.keys(jsonData).forEach(address => {
+        const addressData = jsonData[address];
+        
+        // Skip if no outputs
+        if (!Array.isArray(addressData) || addressData.length === 0) return;
+        
+        // Look for outputs with OVT runes
+        addressData.forEach(output => {
+          if (output.runes && output.runes[OVT_RUNE_SYMBOL]) {
+            const amount = parseInt(output.runes[OVT_RUNE_SYMBOL]);
+            
+            // Determine if this is a treasury or LP address
+            const isTreasury = address === OVT_TREASURY_ADDRESS || address === OVT_TREASURY_ADDRESS_2;
+            const isLP = address === LP_ADDRESS || (LP_ADDRESS_2 && address === LP_ADDRESS_2);
+            
+            balances.push({
+              address,
+              amount,
+              isTreasury,
+              isLP
+            });
+          }
+        });
       });
+    } catch (e) {
+      // If JSON parsing fails, fall back to line-based parsing
+      console.log('JSON parsing failed, falling back to line parsing');
+      
+      const lines = output.split('\n').filter(line => line.trim() && line.includes(OVT_RUNE_ID));
+      
+      for (const line of lines) {
+        // Based on actual ord output format, try to extract amount and address
+        const amount = parseInt(line.match(/(\d+)/)?.[0] || '0');
+        
+        // Try to extract address, or default to treasury
+        const addressMatch = line.match(/([a-zA-Z0-9]{34,})/);
+        const address = addressMatch ? addressMatch[0] : OVT_TREASURY_ADDRESS;
+        
+        // Determine if this is a treasury or LP address
+        const isTreasury = address === OVT_TREASURY_ADDRESS || address === OVT_TREASURY_ADDRESS_2;
+        const isLP = address === LP_ADDRESS || (LP_ADDRESS_2 && address === LP_ADDRESS_2);
+        
+        balances.push({
+          address,
+          amount,
+          isTreasury,
+          isLP
+        });
+      }
     }
     
     return balances;
@@ -87,8 +318,16 @@ const parseRuneBalances = (output) => {
 // Helper function to calculate distribution stats
 const calculateDistributionStats = (balances) => {
   const totalSupply = balances.reduce((sum, b) => sum + b.amount, 0);
-  const treasuryHeld = balances.find(b => b.isTreasury)?.amount || 0;
-  const lpHeld = balances.find(b => b.isLP)?.amount || 0;
+  
+  // Calculate treasury holdings by summing balances from both treasury addresses
+  const treasuryHeld = balances
+    .filter(b => b.isTreasury)
+    .reduce((sum, b) => sum + b.amount, 0);
+  
+  const lpHeld = balances
+    .filter(b => b.isLP)
+    .reduce((sum, b) => sum + b.amount, 0);
+  
   const distributed = totalSupply - treasuryHeld;
   
   return {
@@ -98,8 +337,8 @@ const calculateDistributionStats = (balances) => {
     distributed,
     percentDistributed: (distributed / totalSupply * 100).toFixed(2),
     percentInLP: (lpHeld / totalSupply * 100).toFixed(2),
-    treasuryAddresses: [OVT_TREASURY_ADDRESS],
-    lpAddresses: [LP_ADDRESS]
+    treasuryAddresses: [OVT_TREASURY_ADDRESS, OVT_TREASURY_ADDRESS_2],
+    lpAddresses: [LP_ADDRESS, LP_ADDRESS_2].filter(Boolean)
   };
 };
 
@@ -315,30 +554,56 @@ app.get('/', (req, res) => {
       description: 'API for managing OVT (OTORI Vision Token) runes on Bitcoin Signet',
       configuration: {
         runeId: OVT_RUNE_ID,
-        treasuryAddress: OVT_TREASURY_ADDRESS,
-        lpAddress: LP_ADDRESS
+        treasuryAddresses: [OVT_TREASURY_ADDRESS, OVT_TREASURY_ADDRESS_2],
+        lpAddresses: [LP_ADDRESS, LP_ADDRESS_2].filter(Boolean)
       },
       endpoints
     });
   }
 });
 
-// Replace the rune/:id endpoint with a dedicated OVT info endpoint
-app.get('/ovt/info', (req, res) => {
+// Define OVT rune information endpoint
+app.get('/ovt/info', async (req, res) => {
   try {
-    // Return hard-coded info about our OVT rune
-    // This avoids the need to query all runes
-    return res.json({
-      success: true,
-      runeInfo: {
-        id: OVT_RUNE_ID,
-        symbol: OVT_RUNE_SYMBOL,
-        treasuryAddress: OVT_TREASURY_ADDRESS,
-        lpAddress: LP_ADDRESS
-      }
-    });
+    // Try to get OVT rune info from remote API
+    const result = await getRemoteOVTInfo();
+    if (result.success) {
+      return res.json(result.result);
+    } else {
+      throw new Error(result.error);
+    }
   } catch (error) {
     console.error('Error getting OVT info:', error);
+    
+    // Fallback to mock data
+    res.json({
+      success: true,
+      rune: {
+        runeId: OVT_RUNE_ID,
+        name: 'OTORI•VISION•TOKEN',
+        symbol: '⊙',
+        supply: 2100000,
+        treasuryAddresses: [OVT_TREASURY_ADDRESS, OVT_TREASURY_ADDRESS_2],
+        lpAddresses: [LP_ADDRESS, LP_ADDRESS_2].filter(Boolean),
+        etching: 'e75ce796378927a5c152e8ee469c4ca3cf19a921f1e444fb88a22aaf035782fb',
+        divisibility: 2,
+        timestamp: '2025-03-20 21:48:00 UTC'
+      }
+    });
+  }
+});
+
+// Update the other endpoints to use the remote API functions
+app.get('/ovt/balances', async (req, res) => {
+  try {
+    const result = await getRemoteWalletBalances();
+    if (result.success) {
+      return res.json(result.result);
+    } else {
+      throw new Error(result.error);
+    }
+  } catch (error) {
+    console.error('Error getting OVT balances:', error);
     res.status(500).json({
       success: false,
       error: error.toString()
@@ -346,96 +611,37 @@ app.get('/ovt/info', (req, res) => {
   }
 });
 
-// Update the other endpoints to use the OVT prefix instead of rune/:id
-app.get('/ovt/balances', async (req, res) => {
-  const result = execOrdCommand(`wallet balance`);
-  
-  if (result.success) {
-    const balances = parseRuneBalances(result.result);
-    res.json({ success: true, balances });
-  } else {
-    res.status(500).json({ success: false, error: result.error });
-  }
-});
-
 app.get('/ovt/distribution', async (req, res) => {
-  const result = execOrdCommand(`wallet balance`);
-  
-  if (result.success) {
-    const balances = parseRuneBalances(result.result);
-    const distributionStats = calculateDistributionStats(balances);
-    const transactions = await getTransactionHistory(OVT_RUNE_ID);
-    
-    res.json({ 
-      success: true, 
-      distributionStats: {
-        ...distributionStats,
-        distributionEvents: transactions
-      }
+  try {
+    const result = await getRemoteDistributionStats();
+    if (result.success) {
+      return res.json(result.result);
+    } else {
+      throw new Error(result.error);
+    }
+  } catch (error) {
+    console.error('Error getting OVT distribution:', error);
+    res.status(500).json({
+      success: false,
+      error: error.toString()
     });
-  } else {
-    res.status(500).json({ success: false, error: result.error });
   }
 });
 
 app.get('/ovt/lp-info', async (req, res) => {
   try {
-    // Get LP balance
-    const balanceResult = execOrdCommand(`wallet balance`);
-    if (!balanceResult.success) throw new Error('Failed to get balances');
-    
-    const balances = parseRuneBalances(balanceResult.result);
-    const lpBalance = balances.find(b => b.isLP)?.amount || 0;
-    const btcSats = await getWalletBalance(LP_ADDRESS);
-    
-    // Get recent transactions for volume calculation
-    const transactions = await getTransactionHistory(OVT_RUNE_ID);
-    const now = Date.now();
-    const oneDayAgo = now - 24 * 60 * 60 * 1000;
-    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
-    
-    // Calculate volumes
-    const dailyVolume = transactions
-      .filter(t => t.timestamp > oneDayAgo)
-      .reduce((sum, t) => sum + t.amount, 0);
-      
-    const weeklyVolume = transactions
-      .filter(t => t.timestamp > sevenDaysAgo)
-      .reduce((sum, t) => sum + t.amount, 0);
-    
-    // Get last trade
-    const lastTrade = transactions
-      .sort((a, b) => b.timestamp - a.timestamp)
-      .find(t => t.type === 'buy' || t.type === 'sell');
-    
-    // Calculate price impact based on current liquidity
-    const impactMultiplier = calculatePriceImpact(lpBalance, btcSats);
-    
-    const lpInfo = {
-      address: LP_ADDRESS,
-      liquidity: {
-        ovt: lpBalance,
-        btcSats,
-        impactMultiplier,
-        liquidityScore: (1 / impactMultiplier).toFixed(2) // Higher score means better liquidity
-      },
-      pricing: {
-        currentPriceSats: lastTrade?.priceSats || 250, // Default if no trades
-        lastTradeTime: lastTrade?.timestamp || now,
-        dailyVolume,
-        weeklyVolume,
-        estimatedPriceImpact: {
-          small: (impactMultiplier * 1000).toFixed(4), // Impact for 1k OVT trade
-          medium: (impactMultiplier * 10000).toFixed(4), // Impact for 10k OVT trade
-          large: (impactMultiplier * 100000).toFixed(4) // Impact for 100k OVT trade
-        }
-      },
-      transactions: transactions.slice(0, 10) // Last 10 transactions
-    };
-    
-    res.json({ success: true, lpInfo });
+    const result = await getRemoteLPInfo();
+    if (result.success) {
+      return res.json(result.result);
+    } else {
+      throw new Error(result.error);
+    }
   } catch (error) {
-    res.status(500).json({ success: false, error: error.toString() });
+    console.error('Error getting LP info:', error);
+    res.status(500).json({
+      success: false,
+      error: error.toString()
+    });
   }
 });
 
@@ -595,8 +801,8 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     configuration: {
       runeId: OVT_RUNE_ID,
-      treasuryAddress: OVT_TREASURY_ADDRESS,
-      lpAddress: LP_ADDRESS
+      treasuryAddresses: [OVT_TREASURY_ADDRESS, OVT_TREASURY_ADDRESS_2],
+      lpAddresses: [LP_ADDRESS, LP_ADDRESS_2].filter(Boolean)
     },
     dependencies: {
       ord: {

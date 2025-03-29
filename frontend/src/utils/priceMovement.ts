@@ -121,13 +121,20 @@ export function getGlobalNAVReference(): number {
     }
     
     // If we get here, either there was no stored value, or it was invalid
-    // Initialize with the default value
-    localStorage.setItem(GLOBAL_NAV_KEY, GLOBAL_NAV_USD_REFERENCE.toString());
+    // Calculate initial value based on default portfolio positions
+    const defaultPortfolio = getDefaultPortfolio();
+    const initialValue = defaultPortfolio.reduce((sum, position) => sum + position.current, 0);
+    
+    // Use calculated value or fallback to default
+    const navValue = initialValue > 0 ? initialValue : GLOBAL_NAV_USD_REFERENCE;
+    
+    // Save to localStorage
+    localStorage.setItem(GLOBAL_NAV_KEY, navValue.toString());
     
     // Also set the update time to ensure it's recognized as newly initialized
     localStorage.setItem(GLOBAL_UPDATE_KEY, Date.now().toString());
     
-    return GLOBAL_NAV_USD_REFERENCE;
+    return navValue;
   } catch (error) {
     console.error('Error accessing localStorage for NAV reference:', error);
     return GLOBAL_NAV_USD_REFERENCE;
@@ -768,62 +775,65 @@ export const getPortfolioFromLocalStorage = (): PortfolioPosition[] => {
  * Provides a default portfolio for new users or when localStorage fails
  */
 export function getDefaultPortfolio(): PortfolioPosition[] {
-  // The default portfolio has a mix of BTC ecosystem projects
+  try {
+    // First try to import the mock data if in a browser environment
+    if (typeof window !== 'undefined') {
+      try {
+        // Try to access the mock data
+        const mockData = require('../mock-data/portfolio-positions.json');
+        if (Array.isArray(mockData) && mockData.length > 0) {
+          console.log('Using mock portfolio data from JSON file');
+          return mockData;
+        }
+      } catch (err) {
+        console.warn('Could not load mock portfolio data, using hardcoded default');
+      }
+    }
+  } catch (error) {
+    console.warn('Error loading mock data, using hardcoded default');
+  }
+  
+  // Fallback to hardcoded values that match the backend
   return [
     {
-      name: "Bitcoin",
-      value: 500000,
-      current: 550000,
-      change: 10.0,
-      tokenAmount: 1.5,
-      pricePerToken: 336666.67,
-      description: "Digital Gold",
-      marketCap: 750000000000,
-      sector: "currency"
+      name: "Polymorphic Labs",
+      value: 180000000,
+      description: "Encryption Layer",
+      transactionId: "position_entry_polymorphic_1740995813211",
+      tokenAmount: 600000,
+      pricePerToken: 300,
+      current: 180000000,
+      change: 0
     },
     {
-      name: "Lightning Network",
-      value: 300000,
-      current: 315000,
-      change: 5.0,
-      tokenAmount: 10000,
-      pricePerToken: 31.5,
-      description: "Layer 2 Scaling Solution",
-      marketCap: 400000000,
-      sector: "scaling"
+      name: "VoltFi",
+      value: 87500000,
+      description: "Bitcoin Volatility Index on Bitcoin",
+      transactionId: "position_entry_voltfi_1740995813211",
+      tokenAmount: 350000,
+      pricePerToken: 250,
+      current: 87500000,
+      change: 0
     },
     {
-      name: "Liquid Network",
-      value: 200000,
-      current: 190000,
-      change: -5.0,
-      tokenAmount: 1000,
-      pricePerToken: 190,
-      description: "Bitcoin Sidechain",
-      marketCap: 250000000,
-      sector: "scaling"
+      name: "MIXDTape",
+      value: 100000000,
+      description: "Phygital Music for superfans - disrupting Streaming",
+      transactionId: "position_entry_mixdtape_1740995813211",
+      tokenAmount: 500000,
+      pricePerToken: 200,
+      current: 100000000,
+      change: 0
     },
     {
-      name: "Rootstock",
-      value: 150000,
-      current: 165000,
-      change: 10.0,
-      tokenAmount: 5000,
-      pricePerToken: 33,
-      description: "Smart Contracts on Bitcoin",
-      marketCap: 180000000,
-      sector: "infrastructure"
-    },
-    {
-      name: "RGB Protocol",
-      value: 100000,
-      current: 120000,
-      change: 20.0,
-      tokenAmount: 10000,
-      pricePerToken: 12,
-      description: "Smart Assets on Bitcoin",
-      marketCap: 75000000,
-      sector: "defi"
+      name: "OrdinalHive",
+      value: 166980000,
+      description: "Ordinal and Bitcoin asset aggregator for the Hive",
+      transactionId: "position_entry_ohive23322813211",
+      tokenAmount: 690000,
+      pricePerToken: 242,
+      current: 166980000,
+      change: 0
     }
   ];
 }

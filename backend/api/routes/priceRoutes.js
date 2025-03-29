@@ -168,4 +168,43 @@ router.post('/update', (req, res) => {
   }
 });
 
+/**
+ * @route POST /api/price/update-ovt-supply
+ * @description Trigger a manual update of OVT circulating supply (admin only)
+ * @access Restricted
+ */
+router.post('/update-ovt-supply', (req, res) => {
+  try {
+    // In production, add authentication middleware and restrict this endpoint
+    // For now, allow manual updates for development
+    priceService.updateOVTCirculatingSupply()
+      .then(success => {
+        if (success) {
+          res.json({
+            success: true,
+            message: 'OVT circulating supply updated successfully',
+            timestamp: Date.now(),
+            circulatingSupply: priceService.getOVTPrice().circulatingSupply
+          });
+        } else {
+          res.json({
+            success: true,
+            message: 'OVT circulating supply update attempted but no changes made',
+            timestamp: Date.now(),
+            circulatingSupply: priceService.getOVTPrice().circulatingSupply
+          });
+        }
+      })
+      .catch(error => {
+        throw error;
+      });
+  } catch (error) {
+    console.error('Error updating OVT circulating supply:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update OVT circulating supply'
+    });
+  }
+});
+
 module.exports = router; 

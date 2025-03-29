@@ -48,6 +48,10 @@ if (!fs.existsSync(dataDir)) {
 app.use('/api/price', priceRoutes);
 app.use('/api/trading', tradingRoutes);
 
+// Mount Runes API routes directly on the root path
+// This makes endpoints like /ovt/distribution available
+app.use('/', runesAPI);
+
 // Simple health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -95,6 +99,11 @@ app.get('/', (req, res) => {
       path: '/api/price/update',
       method: 'POST',
       description: 'Trigger a manual price update (admin only)',
+    },
+    {
+      path: '/api/price/update-ovt-supply',
+      method: 'POST',
+      description: 'Trigger a manual update of OVT circulating supply (admin only)',
     },
     {
       path: '/api/trading/orderbook',

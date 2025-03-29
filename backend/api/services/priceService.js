@@ -15,6 +15,10 @@ const BTC_PRICE_FILE = path.join(__dirname, '../../data/btc-price.json');
 const SATS_PER_BTC = 100000000;
 const UPDATE_INTERVAL = 4 * 60 * 60 * 1000; // 4 hours in milliseconds 
 const DEFAULT_BTC_PRICE = 60000;
+const DEFAULT_OVT_CIRCULATING_SUPPLY = 1000000; // 1M tokens for testnet
+const OVT_TREASURY_ADDRESS = process.env.NEXT_PUBLIC_TREASURY_ADDRESS || 'tb1pglzcv7mg4xdy8nd2cdulsqgxc5yf35fxu5yvz27cf5gl6wcs4ktspjmytd';
+const OVT_TREASURY_ADDRESS_2 = process.env.NEXT_PUBLIC_TREASURY_ADDRESS_2 || 'tb1plpfgtre7sxxrrwjdpy4357qj2nr7ek06xqpdryxr4lzt5tck6x3qz07zd3';
+const OVT_RUNE_ID = process.env.NEXT_PUBLIC_OVT_RUNE_ID || '240249:101';
 
 // Data structure to store current price state
 let priceState = {
@@ -22,6 +26,7 @@ let priceState = {
   ovtPrice: 0,
   btcPrice: DEFAULT_BTC_PRICE,
   lastUpdate: 0,
+  ovtCirculatingSupply: DEFAULT_OVT_CIRCULATING_SUPPLY,
   priceHistory: {
     daily: {}, // Daily closing prices by position name
     hourly: {} // Hourly data points for more granular analysis
@@ -57,6 +62,12 @@ function initialize() {
     // Setup periodic save
     setInterval(savePriceData, 30 * 60 * 1000); // Save every 30 minutes
     
+    // Setup periodic OVT supply update
+    setInterval(updateOVTCirculatingSupply, 2 * 60 * 60 * 1000); // Every 2 hours
+    
+    // Initial OVT supply update
+    updateOVTCirculatingSupply();
+    
     return true;
   } catch (error) {
     console.error('Error initializing price service:', error);
@@ -88,8 +99,8 @@ function initializeDefaultPriceData() {
     };
   });
   
-  // Set OVT price as the first position's price per token
-  priceState.ovtPrice = defaultPositions[0].pricePerToken;
+  // Calculate OVT price based on total NAV and circulating supply
+  calculateOVTPrice();
   
   // Initialize price history with current values
   priceState.priceHistory.daily = Object.fromEntries(
@@ -134,10 +145,8 @@ async function updatePrices() {
       updatePriceHistory(positionName, updatedPosition.current);
     });
     
-    // 3. If OVT is a position, update the OVT price
-    if (priceState.positions['Bitcoin']) {
-      priceState.ovtPrice = priceState.positions['Bitcoin'].pricePerToken;
-    }
+    // 3. Update OVT price based on NAV and circulating supply
+    calculateOVTPrice();
     
     // 4. Update last update timestamp
     priceState.lastUpdate = Date.now();
@@ -150,6 +159,99 @@ async function updatePrices() {
   } catch (error) {
     console.error('Error updating prices:', error);
     return false;
+  }
+}
+
+// Update OVT circulating supply from the Runes API
+async function updateOVTCirculatingSupply() {
+  try {
+    console.log('Updating OVT circulating supply...');
+    
+    // Try to fetch circulating supply from the Runes API
+    try {
+      // The Runes API should be running on the same server or accessible locally
+      const response = await axios.get('http://localhost:3030/ovt/distribution', {
+        timeout: 5000
+      });
+      
+      if (response.data && response.data.success && response.data.distributionStats) {
+        const { totalSupply, treasuryHeld } = response.data.distributionStats;
+        
+        // Circulating supply is total supply minus tokens held in treasury
+        const circulatingSupply = totalSupply - treasuryHeld;
+        
+        // Update state with on-chain data
+        priceState.ovtCirculatingSupply = circulatingSupply > 0 ? circulatingSupply : DEFAULT_OVT_CIRCULATING_SUPPLY;
+        console.log(`Updated OVT circulating supply: ${priceState.ovtCirculatingSupply}`);
+        
+        // Recalculate OVT price with the updated supply
+        calculateOVTPrice();
+        
+        // Save data
+        savePriceData();
+        
+        return true;
+      } else {
+        console.log('Invalid response from Runes API, using default or previous supply');
+      }
+    } catch (error) {
+      console.error('Error fetching OVT distribution data:', error);
+      console.log('Using default or previous supply value');
+    }
+    
+    // If we couldn't fetch from the API, ensure we have at least the default value
+    if (!priceState.ovtCirculatingSupply) {
+      priceState.ovtCirculatingSupply = DEFAULT_OVT_CIRCULATING_SUPPLY;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error updating OVT circulating supply:', error);
+    return false;
+  }
+}
+
+// Calculate OVT price based on NAV and circulating supply
+function calculateOVTPrice() {
+  try {
+    // 1. Calculate total NAV in sats
+    const totalNAVSats = Object.values(priceState.positions)
+      .reduce((sum, position) => {
+        // Ensure we're adding valid numbers to prevent overflow
+        const current = typeof position.current === 'number' && isFinite(position.current) ? position.current : 0;
+        return sum + current;
+      }, 0);
+    
+    // 2. Ensure total NAV is within reasonable bounds (max 100 million BTC in sats)
+    const maxNAV = 100 * 1000000 * SATS_PER_BTC; // 100M BTC in sats
+    const validatedNAV = Math.min(Math.max(totalNAVSats, 0), maxNAV);
+    
+    // 3. Ensure we have a valid circulating supply (fallback to default if needed)
+    const circulatingSupply = priceState.ovtCirculatingSupply || DEFAULT_OVT_CIRCULATING_SUPPLY;
+    
+    // 4. Ensure supply is positive to avoid division by zero
+    if (circulatingSupply <= 0) {
+      console.error('Invalid circulating supply:', circulatingSupply);
+      return priceState.ovtPrice || 0; // Return existing price or 0
+    }
+    
+    // 5. Calculate OVT price in sats with validation
+    const ovtPriceInSats = validatedNAV / circulatingSupply;
+    
+    // 6. Ensure the price is within reasonable bounds (max 1M sats per token)
+    const maxPrice = 1000000; // 1M sats = 0.01 BTC
+    const validatedPrice = Math.min(Math.max(ovtPriceInSats, 0), maxPrice);
+    
+    // 7. Update state
+    priceState.ovtPrice = validatedPrice;
+    
+    console.log(`Calculated OVT price: ${validatedPrice} sats (NAV: ${validatedNAV} sats / Supply: ${circulatingSupply})`);
+    
+    return validatedPrice;
+  } catch (error) {
+    console.error('Error calculating OVT price:', error);
+    // Return existing price or a default value
+    return priceState.ovtPrice || 100000; // Default to 100k sats (0.001 BTC) if calculation fails
   }
 }
 
@@ -409,61 +511,56 @@ function simulatePriceMovement(position) {
 
 // Get default portfolio for initialization
 function getDefaultPortfolio() {
+  try {
+    // Try to load the mock-data from the frontend
+    const mockDataPath = path.join(__dirname, '../../../frontend/src/mock-data/portfolio-positions.json');
+    if (fs.existsSync(mockDataPath)) {
+      const mockData = JSON.parse(fs.readFileSync(mockDataPath, 'utf8'));
+      console.log(`Loaded portfolio positions from mock data: ${mockData.length} positions found`);
+      return mockData;
+    }
+  } catch (error) {
+    console.error('Error loading mock portfolio data:', error);
+    console.log('Falling back to hardcoded portfolio positions');
+  }
+  
+  // Fallback to default hardcoded portfolio positions if mock data can't be loaded
   return [
     {
-      name: "Bitcoin",
-      value: 500000,
-      current: 550000,
-      change: 10.0,
-      tokenAmount: 1.5,
-      pricePerToken: 336666.67,
-      description: "Digital Gold",
-      marketCap: 750000000000,
-      sector: "currency"
+      name: "Polymorphic Labs",
+      value: 180000000,
+      description: "Encryption Layer",
+      current: 180000000,
+      change: 0,
+      tokenAmount: 600000,
+      pricePerToken: 300
     },
     {
-      name: "Lightning Network",
-      value: 300000,
-      current: 315000,
-      change: 5.0,
-      tokenAmount: 10000,
-      pricePerToken: 31.5,
-      description: "Layer 2 Scaling Solution",
-      marketCap: 400000000,
-      sector: "scaling"
+      name: "VoltFi",
+      value: 87500000,
+      description: "Bitcoin Volatility Index on Bitcoin",
+      current: 87500000,
+      change: 0,
+      tokenAmount: 350000,
+      pricePerToken: 250
     },
     {
-      name: "Liquid Network",
-      value: 200000,
-      current: 190000,
-      change: -5.0,
-      tokenAmount: 1000,
-      pricePerToken: 190,
-      description: "Bitcoin Sidechain",
-      marketCap: 250000000,
-      sector: "scaling"
+      name: "MIXDTape",
+      value: 100000000,
+      description: "Phygital Music for superfans - disrupting Streaming",
+      current: 100000000,
+      change: 0,
+      tokenAmount: 500000,
+      pricePerToken: 200
     },
     {
-      name: "Rootstock",
-      value: 150000,
-      current: 165000,
-      change: 10.0,
-      tokenAmount: 5000,
-      pricePerToken: 33,
-      description: "Smart Contracts on Bitcoin",
-      marketCap: 180000000,
-      sector: "infrastructure"
-    },
-    {
-      name: "RGB Protocol",
-      value: 100000,
-      current: 120000,
-      change: 20.0,
-      tokenAmount: 10000,
-      pricePerToken: 12,
-      description: "Smart Assets on Bitcoin",
-      marketCap: 75000000,
-      sector: "defi"
+      name: "OrdinalHive",
+      value: 166980000,
+      description: "Ordinal and Bitcoin asset aggregator for the Hive",
+      current: 166980000,
+      change: 0,
+      tokenAmount: 690000,
+      pricePerToken: 242
     }
   ];
 }
@@ -497,7 +594,8 @@ function getOVTPrice() {
     usdPrice: (priceState.ovtPrice / SATS_PER_BTC) * priceState.btcPrice,
     usdPriceFormatted: `$${((priceState.ovtPrice / SATS_PER_BTC) * priceState.btcPrice).toFixed(2)}`,
     dailyChange: calculate24HourChange('Bitcoin'),
-    lastUpdate: priceState.lastUpdate
+    lastUpdate: priceState.lastUpdate,
+    circulatingSupply: priceState.ovtCirculatingSupply
   };
 }
 
@@ -573,6 +671,7 @@ function getNAVData() {
     changePercentage: overallChangePercentage,
     btcPrice: priceState.btcPrice,
     ovtPrice: priceState.ovtPrice,
+    circulatingSupply: priceState.ovtCirculatingSupply,
     lastUpdate: priceState.lastUpdate
   };
 }
@@ -584,5 +683,6 @@ module.exports = {
   getBitcoinPrice,
   getPriceHistory,
   getNAVData,
-  updatePrices
+  updatePrices,
+  updateOVTCirculatingSupply
 }; 

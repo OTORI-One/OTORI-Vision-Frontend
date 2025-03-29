@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import TradingInterface from './TradingInterface';
-import { useOVTClient } from '../src/hooks/useOVTClient';
-import { usePortfolio } from '../src/hooks/usePortfolio';
+import { useOVTPrice } from '../src/hooks/useOVTPrice';
 import { useCurrencyToggle } from '../src/hooks/useCurrencyToggle';
+import priceService from '../src/services/priceService';
 
 interface TradingContentProps {
   isConnected: boolean;
@@ -26,23 +26,49 @@ const TradingContent: React.FC<TradingContentProps> = ({
   laserEyesWallets,
   tradingDataSource
 }) => {
-  const { navData, formattedOvtPrice } = useOVTClient();
-  const { currency, formatValue } = useCurrencyToggle();
-  const { positions, getTotalValue, getOverallChangePercentage } = usePortfolio();
-
-  // Calculate total portfolio value from positions
-  const totalValue = getTotalValue();
+  // Replace useOVTClient with direct API call through priceService
+  const [navData, setNavData] = useState<any>({
+    totalValueSats: 0,
+    totalValueUSD: 0,
+    formattedTotalValueSats: '₿0.00',
+    formattedTotalValueUSD: '$0.00',
+    changePercentage: 0
+  });
   
-  // Format total value based on currency
-  const formattedTotalValue = formatValue(totalValue);
+  const [loading, setLoading] = useState(true);
   
-  // Calculate overall change percentage
-  const changePercentage = getOverallChangePercentage().toFixed(2);
+  // Fetch NAV data directly from API
+  useEffect(() => {
+    const fetchNavData = async () => {
+      try {
+        setLoading(true);
+        const data = await priceService.getNAVData();
+        setNavData(data);
+      } catch (error) {
+        console.error('Error fetching NAV data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchNavData();
+    
+    // Refresh NAV every 60 seconds
+    const intervalId = setInterval(fetchNavData, 60000);
+    return () => clearInterval(intervalId);
+  }, []);
+  
+  const { price: ovtPrice, btcPriceFormatted, usdPriceFormatted } = useOVTPrice();
+  const { currency } = useCurrencyToggle();
+  
+  // Get formatted NAV based on currency
+  const formattedTotalValue = currency === 'usd' 
+    ? navData.formattedTotalValueUSD 
+    : navData.formattedTotalValueSats;
+  
+  // Get change percentage from NAV data
+  const changePercentage = navData.changePercentage.toFixed(2);
   const isPositive = parseFloat(changePercentage) >= 0;
-  
-  // Format OVT price consistently
-  const ovtPrice = positions.length > 0 ? positions[0].pricePerToken : 0;
-  const formattedOvtPriceValue = formatValue(ovtPrice);
   
   return (
     <>
@@ -65,7 +91,7 @@ const TradingContent: React.FC<TradingContentProps> = ({
           <div>
             <h3 className="text-sm font-medium text-primary">OVT Price</h3>
             <p className="text-2xl font-bold text-primary">
-              {formattedOvtPriceValue}
+              {currency === 'btc' ? btcPriceFormatted : usdPriceFormatted}
             </p>
             <p className="text-xs text-primary opacity-75">per token</p>
           </div>
